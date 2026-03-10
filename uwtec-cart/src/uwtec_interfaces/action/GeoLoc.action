@@ -1,0 +1,9 @@
+# Goal: Define geo point
+# uwtec_interfaces/GeoPoint point
+geographic_msgs/GeoPoint point
+---
+# Result: Final outcome
+bool success
+---
+# Feedback: Distances
+float32[] distances

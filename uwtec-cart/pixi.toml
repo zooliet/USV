@@ -1,0 +1,28 @@
+[workspace]
+authors = ["Junhyun Shin <hl1sqi@gmail.com>"]
+channels = ["https://prefix.dev/robostack-jazzy", "https://prefix.dev/conda-forge"]
+name = "uwtec-cart"
+platforms = ["linux-aarch64"]
+version = "0.1.0"
+preview = ["pixi-build"]
+
+[tasks]
+
+[dependencies]
+python = "3.12.12.*"
+pyright = ">=1.1.408,<2"
+ros-jazzy-desktop = ">=0.11.0,<0.12"
+ros-jazzy-uwtec-bringup = { path = "src/uwtec_bringup"  }
+ros-jazzy-uwtec-localization = { path = "src/uwtec_localization" }
+ros-jazzy-uwtec-navigation = { path = "src/uwtec_navigation" }
+ros-jazzy-uwtec-interfaces = { path = "src/uwtec_interfaces" }
+ros-jazzy-uwtec-agent = { path = "src/uwtec_agent" }
+pynmea2 = ">=1.19.0,<2"
+aioserial = ">=1.3.1,<2"
+async_timeout = ">=3.0.1,<4"
+pyproj = ">=3.7.2,<4"
+ros-jazzy-twist-mux = ">=4.4.0,<5"
+
+[pypi-dependencies]
+asyncio-for-robotics = ">=1.3.5, <2"
+redis = ">=7.2.1, <8"
