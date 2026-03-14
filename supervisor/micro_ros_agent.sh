@@ -1,5 +1,5 @@
 #!/bin/bash
-NAME=microros-agent
+NAME=micro-ros-agent
 DIR=/home/uwtec/USV/microros_ws
 cd $DIR
 PATH=/home/uwtec/.pixi/bin:$PATH

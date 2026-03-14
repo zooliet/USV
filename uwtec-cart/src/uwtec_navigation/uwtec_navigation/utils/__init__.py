@@ -1,4 +1,7 @@
+import os
+import yaml
 import math
+from ament_index_python.packages import get_package_share_directory
 
 
 def signed_angle(degree: float) -> float:
@@ -207,3 +210,34 @@ if __name__ == "__main__":
         print(
             f"Current Heading: {current_heading} degrees, Goal Heading: {goal_heading} degrees, Rotation to Go: {rotation} degrees"
         )
+
+
+def get_waypoints_from_yaml(wps_name):
+    wps_yaml_path = os.path.join(
+        get_package_share_directory("uwtec_navigation"), "config", wps_name
+    )
+    coords = []
+    with open(wps_yaml_path, "r") as wps_file:
+        coords = yaml.safe_load(wps_file)
+    return coords, 0
+
+
+def get_gyro_offset(heading_file_name):
+    heading_yaml_path = os.path.join(
+        get_package_share_directory("uwtec_navigation"), "config", heading_file_name
+    )
+
+    with open(heading_yaml_path, "r") as heading_file:
+        data = yaml.safe_load(heading_file)
+        offset = data.get("offset", 0.0)
+    return offset
+
+
+def update_ticks(ticks_for_5_secs, ticks_for_1_sec, interval=0.1):
+    ticks_for_5_secs = (
+        ticks_for_5_secs - 1 if ticks_for_5_secs > 1 else int(5.0 / interval)
+    )
+    ticks_for_1_sec = (
+        ticks_for_1_sec - 1 if ticks_for_1_sec > 1.0 else int(1.0 / interval)
+    )
+    return ticks_for_5_secs, ticks_for_1_sec

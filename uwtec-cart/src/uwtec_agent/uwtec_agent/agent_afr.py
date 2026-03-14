@@ -5,36 +5,28 @@ from typing import cast
 from itertools import pairwise
 from ament_index_python.packages import get_package_share_directory
 # from pyproj import Transformer
-# import ipaddress
 
 import asyncio
 import async_timeout
-
 from redis.asyncio import Redis
-# from redis.asyncio.client import PubSub
 
 import rclpy
 from rclpy.node import Node
-# from rclpy.action.server import CancelResponse
-# from rclpy.action.client import ActionClient
+from geometry_msgs.msg import Twist
 
 from uwtec_interfaces.msg import CustomNavSat
 from uwtec_interfaces.action import SimpleCommand, GeoLoc
 
 from uwtec_agent.action_clients import (
-    HeadingAndOffsetClient, 
-    ShuttleRunClient, 
-    NavToWpsClient
+    HeadingAndOffsetClient,
+    ShuttleRunClient,
+    NavToWpsClient,
 )
 
-# from uwtec_navigation.utils import signed_angle
-#
 from asyncio_for_robotics.ros2 import (
     ThreadedSession,
     auto_session,
     set_auto_session,
-    # TopicInfo,
-    # Sub,
 )
 
 
@@ -58,19 +50,17 @@ class Agent(Node):
         self.localizer_sub = self.create_subscription(
             CustomNavSat, "/gps/custom", self.gps_custom_callback, 1
         )
-        # self.action_client_heading_and_offset = HeadingAndOffsetClient(
-        #     self, SimpleCommand, "test_heading_and_offset"
-        # )
+        self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_joy_uros", 10)
+        # self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_nav", 10)
+
         self.action_client_heading_and_offset = HeadingAndOffsetClient(
             self, SimpleCommand, "heading_and_offset"
         )
-        
-        # self.action_client_shuttle_run = ShuttleRunClient(self, GeoLoc, "test_shuttle_run")
+
         self.action_client_shuttle_run = ShuttleRunClient(self, GeoLoc, "shuttle_run")
-        
-        # self.action_client_wpf = NavToWpsClient(self, SimpleCommand, "test_nav_to_wps")
+
         self.action_client_wpf = NavToWpsClient(self, SimpleCommand, "nav_to_wps")
-        
+
         pid = os.getpid()
         with open("/tmp/agent_node.pid", "w") as f:
             f.write(str(pid))
@@ -93,86 +83,118 @@ class Agent(Node):
 
     async def process(self, message):
         self.get_logger().info(f"Received message: {message}")
-        # if message['channel'].decode() == 'channel::agent':
-        data = message["data"].decode().split(",")
+        data = message["data"].decode().split(":")
         cmd = data[0]
         params = [] if len(data) == 1 else data[1:]
 
         if cmd == "ping":
-            response = f"pong,{self.latitude},{self.longitude},{self.gps_quality},{self.num_sats}"
+            response = f"pong,{self.latitude},{self.longitude},{self.yaw},{self.gps_quality},{self.num_sats}"
             await self.redis.publish("channel::tui", response)
 
         elif cmd == "poweroff":
-            # print("poweroff")
             executable_py = os.path.join(
                 get_package_share_directory("uwtec_agent"),
                 "script",
                 "uwtec_poweroff.py",
             )
             os.system(f"python {executable_py}")
+
         elif cmd == "reboot":
             executable_py = os.path.join(
                 get_package_share_directory("uwtec_agent"), "script", "uwtec_reboot.py"
             )
             os.system(f"python {executable_py}")
-        elif cmd == "upload":
-            # print("upload coordinates")
-            if len(params) % 2 != 0 or len(params) < 2:
+
+        elif cmd == "stop":
+            twist_msg = Twist()
+            twist_msg.linear.x = 0.01
+            twist_msg.linear.y = 0.01
+            self.cmd_vel_pub.publish(twist_msg)
+            # self.get_logger().info("Emergency stop command issued.")
+
+        elif cmd == "test-run":
+            twist_msg = Twist()
+            twist_msg.linear.x = 0.5
+            twist_msg.linear.y = 0.5
+            self.cmd_vel_pub.publish(twist_msg)
+            # self.get_logger().info("test-run command issued.")
+
+        elif cmd == "upload" and params[0] == "wps":
+            try:
+                float(params[1])
+            except (ValueError, IndexError):
+                wps_name = params[1]
+                params_for_coords = params[2:]
+            else:
+                wps_name = "wps.yaml"
+                params_for_coords = params[1:]
+
+            if len(params_for_coords) % 2 != 0 or len(params_for_coords) < 2:
                 self.get_logger().info(
                     "Invalid number of parameters for upload command"
                 )
                 return
 
             coords = []
-            for lat, lon in pairwise(params):
-                coord = {"latitude": lat, "longitude": lon}
+            for lat, lon in pairwise(params_for_coords):
+                coord = {"latitude": float(lat), "longitude": float(lon)}
                 coords.append(coord)
 
             wps_yaml_path = os.path.join(
-                get_package_share_directory("uwtec_navigation"), "config", "wps.yaml"
+                get_package_share_directory("uwtec_navigation"), "config", wps_name
             )
             with open(wps_yaml_path, "w") as wps_file:
                 yaml.dump(coords, wps_file, sort_keys=False)
 
-        elif cmd == "action" and params[0] == "heading_and_offset":
+        elif cmd == "clear" and params[0] == "wps":
+            wps_name = params[1] if len(params) > 1 else "wps.yaml"
+            wps_yaml_path = os.path.join(
+                get_package_share_directory("uwtec_navigation"), "config", wps_name
+            )
+            # remove the file or clear its contents
+            os.remove(wps_yaml_path)
+
+        elif cmd == "append" and params[0] == "wps":
+            wps_name = params[1] if len(params) > 1 else "wps.yaml"
+            coord = {"latitude": self.latitude, "longitude": self.longitude}
+            wps_yaml_path = os.path.join(
+                get_package_share_directory("uwtec_navigation"), "config", wps_name
+            )
+            if os.path.exists(wps_yaml_path):
+                with open(wps_yaml_path, "r") as wps_file:
+                    existing_coords = yaml.safe_load(wps_file) or []
+            else:
+                existing_coords = []
+            existing_coords.append(coord)
+            with open(wps_yaml_path, "w") as wps_file:
+                yaml.dump(existing_coords, wps_file, sort_keys=False)
+
+        elif cmd == "action" and params[0] == "gyro-offset":
             self.action_client_heading_and_offset.action()
-        elif cmd == "cancel" and params[0] == "heading_and_offset":
+        elif cmd == "cancel" and params[0] == "gyro-offset":
             self.action_client_heading_and_offset.cancel()
 
-        elif cmd == "action" and params[0] == "shuttle_run":
+        elif cmd == "action" and params[0] == "shuttle-run":
+            if len(params[1:]) != 2:
+                self.get_logger().info(
+                    "Invalid number of parameters for shuttle_run action"
+                )
+                return
             latitude = float(params[1])
             longitude = float(params[2])
             self.action_client_shuttle_run.action(latitude, longitude)
-        elif cmd == "cancel" and params[0] == "shuttle_run":
+        elif cmd == "cancel" and params[0] == "shuttle-run":
             self.action_client_shuttle_run.cancel()
 
         elif cmd == "action" and params[0] == "wpf":
-            self.action_client_wpf.action()
+            wps_name = params[1] if len(params) > 1 else "wps.yaml"
+            self.action_client_wpf.action(wps_name)
         elif cmd == "cancel" and params[0] == "wpf":
             self.action_client_wpf.cancel()
 
 
-# async def ros_loop(nodes):
-#     from rclpy.executors import MultiThreadedExecutor
-#
-#     executor = MultiThreadedExecutor()
-#     for node in nodes:
-#         executor.add_node(node)
-#
-#     try:
-#         while executor.context.ok():
-#             # while rclpy.ok():
-#             executor.spin_once(timeout_sec=0.1)  # 0.001 ?
-#             await asyncio.sleep(0.001)
-#     finally:
-#         for node in nodes:
-#             executor.remove_node(node)
-#         executor.shutdown()
-
-
 async def redis_loop():
     with auto_session().lock() as session:
-        # action_client = cast(ActionClientNode, session)
         agent = cast(Agent, session)
 
     redis = Redis.from_url("redis://localhost")
@@ -186,15 +208,6 @@ async def redis_loop():
                 message = await pubsub.get_message(ignore_subscribe_messages=True)
                 if message:
                     await agent.process(message)
-                #     if message["data"].decode() == "ACTION":
-                #         print("Received ACTION command, sending goal...")
-                #         # Here you would trigger the action client to send a goal
-                #         node.send_goal(order=10)  # Example order value
-                #     elif message["data"].decode() == "CANCEL":
-                #         print("Received CANCEL command, sending cancel request...")
-                #         node.send_cancel()
-                #     elif message["data"].decode() == "STOP":
-                #         break
                 await asyncio.sleep(0.001)
         except asyncio.TimeoutError:
             pass
@@ -212,12 +225,6 @@ def main(args=None):
     rclpy.init(args=args)
 
     ap = argparse.ArgumentParser()
-    # ap.add_argument(
-    #     "--redis-ip",
-    #     type=ipaddress.ip_address,
-    #     default="127.0.0.1",
-    #     help="IP address to connect to (e.g., 192.168.1.1",
-    # )
     ap.add_argument(
         "--debug", action="store_true", help="Enable debug mode (default: False)"
     )
@@ -227,13 +234,7 @@ def main(args=None):
     args = vars(options)
     print(args)
 
-    # redis_ip = args.get("redis-ip", "127.0.0.1")
-    # redis_ip = ipaddress.ip_address(redis_ip)
-    # redis = Redis.from_url(f"redis://{redis_ip}")
-    # node = ActionClientNode(debug=args.get("debug", False))
-
     agent = Agent(debug=args.get("debug", False))
-    # action_client = ActionClientNode(debug=args.get("debug", False))
     session = ThreadedSession(node=agent)
     set_auto_session(session)
     try:

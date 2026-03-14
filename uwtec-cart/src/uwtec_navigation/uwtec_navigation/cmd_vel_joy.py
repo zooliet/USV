@@ -7,6 +7,7 @@ import argparse
 class CmdVelJoyNode(Node):
     def __init__(self, debug):
         super().__init__("cmd_vel_joy_node")
+        self.get_logger().info("cmd_vel_joy_node has been started.")
         self.debug = debug
 
         self.cmd_vel_joy_subscriber = self.create_subscription(

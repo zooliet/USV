@@ -1,13 +1,12 @@
 import asyncio
-
 import rclpy
-from rclpy.node import Node
 
 from uwtec_navigation.action_servers import (
     ShuttleRunServer,
     HeadingAndOffsetServer,
-    NavToWpsServer
+    NavToWpsServer,
 )
+
 
 async def ros_loop(nodes):
     from rclpy.executors import MultiThreadedExecutor
@@ -35,35 +34,10 @@ async def main_async(*nodes):
 def main(args=None):
     rclpy.init(args=args)
 
-    # ap = argparse.ArgumentParser()
-    # ap.add_argument(
-    #     "-i", "--interval", type=float, default=0.1, help="timer interval: 0.1*"
-    # )
-    # ap.add_argument(
-    #     "--angular-speed",
-    #     type=float,
-    #     default=0.5,
-    #     help="Angular speed in [0-1] (default: 0.5*)",
-    # )
-    # ap.add_argument(
-    #     "--linear-speed",
-    #     type=float,
-    #     default=0.5,
-    #     help="Linear speed in [0-1] (default: 0.5*)",
-    # )
-    # ap.add_argument(
-    #     "--debug", action="store_true", help="Enable debug mode (default: False*)"
-    # )
-    # options, _ = ap.parse_known_args()
-    # # args = vars(ap.parse_args())
-    # args = vars(options)
-    # print(args)
-
     shuttle_run = ShuttleRunServer()
     nav_to_wps = NavToWpsServer()
-    headinig_and_offset = HeadingAndOffsetServer() 
+    headinig_and_offset = HeadingAndOffsetServer()
 
-    # nodes = [shuttle_run, nav_to_wps, headinig_and_offset]
     try:
         asyncio.run(main_async(shuttle_run, nav_to_wps, headinig_and_offset))
     except KeyboardInterrupt:
@@ -77,4 +51,3 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
-

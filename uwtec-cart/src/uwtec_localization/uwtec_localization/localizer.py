@@ -12,9 +12,11 @@ from rclpy.node import Node
 
 from uwtec_interfaces.msg import CustomNavSat
 
+
 class Localizer(Node):
     def __init__(self, debug=False, local_debug=False):
         super().__init__("localizer")
+        self.get_logger().info("Localizer node has been started.")
         self.latitude = 36.5665
         self.longitude = 127.9780
         self.num_sats = 0
@@ -55,7 +57,7 @@ async def gnss_reader(gnss_device, node):
     start = time.perf_counter()
 
     while True:
-        data: bytes = await gnss_device.readline_async() # around 0.1 from GPGGA 0.1
+        data: bytes = await gnss_device.readline_async()  # around 0.1 from GPGGA 0.1
         gnss_frame_no += 1
         try:
             frame = data.decode().strip()
@@ -81,8 +83,12 @@ async def gnss_reader(gnss_device, node):
             node.get_logger().info(
                 f"GNSS Frame Errors: {gnss_frame_errors}/{gnss_frame_no}"
             )
-            node.get_logger().info(f"GNSS Processing Rate: {10 / eplased:.2f} frames/sec")
-            node.get_logger().info(f"GNSS Processing time: {(eplased / 10):.4f} secs/frame")
+            node.get_logger().info(
+                f"GNSS Processing Rate: {10 / eplased:.2f} frames/sec"
+            )
+            node.get_logger().info(
+                f"GNSS Processing time: {(eplased / 10):.4f} secs/frame"
+            )
 
 
 async def gyro_reader(gyro_device, node):
@@ -92,7 +98,9 @@ async def gyro_reader(gyro_device, node):
 
     while True:
         try:
-            async with async_timeout.timeout(0.01):  # optimal sampling freq: around 100 Hz
+            async with async_timeout.timeout(
+                0.01
+            ):  # optimal sampling freq: around 100 Hz
                 # read 44 bytes at a time: 11B*3 + 11B
                 frame = await gyro_device.read_async(size=44)
                 gyro_frame_no += 1
@@ -109,7 +117,7 @@ async def gyro_reader(gyro_device, node):
         except Exception as _:
             gyro_frame_errors += 1
 
-        await asyncio.sleep(0.01) # yield for other tasks
+        await asyncio.sleep(0.01)  # yield for other tasks
 
         if gyro_frame_no % 10 == 0 and node.local_debug:  # every 10 frames == 0.01+⍺
             eplased = time.perf_counter() - start
@@ -117,8 +125,12 @@ async def gyro_reader(gyro_device, node):
             node.get_logger().info(
                 f"Gyro Frame Errors: {gyro_frame_errors}/{gyro_frame_no}"
             )
-            node.get_logger().info(f"Gyro Processing Rate: {10 / eplased:.2f} frames/sec")
-            node.get_logger().info(f"Gyro Processing time: {(eplased / 10):.4f} secs/frame")
+            node.get_logger().info(
+                f"Gyro Processing Rate: {10 / eplased:.2f} frames/sec"
+            )
+            node.get_logger().info(
+                f"Gyro Processing time: {(eplased / 10):.4f} secs/frame"
+            )
             # print(
             #     f"Frame No: {gyro_frame_no}\n{list(rpy)}\nHeading: {node.gyro_heading:.2f}"
             # )
@@ -133,8 +145,8 @@ async def ros_loop(nodes):
 
     try:
         while executor.context.ok():
-        # while rclpy.ok():
-            executor.spin_once(timeout_sec=0.01) # 0.001
+            # while rclpy.ok():
+            executor.spin_once(timeout_sec=0.01)  # 0.001
             await asyncio.sleep(0.004)
     finally:
         for node in nodes:
@@ -170,7 +182,9 @@ def main(args=None):
         "--debug", action="store_true", help="Enable debug mode (default: False)"
     )
     ap.add_argument(
-        "--local-debug", action="store_true", help="Enable local debug mode (default: False)"
+        "--local-debug",
+        action="store_true",
+        help="Enable local debug mode (default: False)",
     )
 
     options, _ = ap.parse_known_args()
@@ -178,7 +192,9 @@ def main(args=None):
     args = vars(options)
     print(args)
 
-    localizer = Localizer(debug=args.get("debug", False), local_debug=args.get("local_debug", False))
+    localizer = Localizer(
+        debug=args.get("debug", False), local_debug=args.get("local_debug", False)
+    )
     try:
         asyncio.run(
             main_async(

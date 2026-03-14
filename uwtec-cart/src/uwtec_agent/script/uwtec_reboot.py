@@ -19,8 +19,11 @@ processes_to_kill = [
     "cmd_vel_joy",
     "twist_mux",
     "uwtec_agent",
-    "nav_server"
+    "nav_server",
+    "teleop_node",
+    "joy_node",
 ]
+
 for process in processes_to_kill:
     try:
         result = subprocess.run(

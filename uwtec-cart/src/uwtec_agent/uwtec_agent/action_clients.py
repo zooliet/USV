@@ -8,12 +8,13 @@ from uwtec_interfaces.action import GeoLoc
 class NavToWpsClient(ActionClient):
     def __init__(self, node, action_type, action_name):
         super().__init__(node, action_type, action_name)
+        node.get_logger().info("nav_to_wps_client has been initialized")
         self.agent = node  # Agent node
         self.goal_handle = None
 
-    def action(self):
+    def action(self, wps_name):
         goal_msg = SimpleCommand.Goal()
-        goal_msg.cmd = "wpf"
+        goal_msg.cmd = wps_name
         self.agent.get_logger().info("Waiting for action server...")
         self.wait_for_server()  # Wait for the server to be ready
 
@@ -65,6 +66,7 @@ class NavToWpsClient(ActionClient):
 class HeadingAndOffsetClient(ActionClient):
     def __init__(self, node, action_type, action_name):
         super().__init__(node, action_type, action_name)
+        node.get_logger().info("heading_and_offset_client has been initialized")
         self.agent = node  # Agent node
         self.goal_handle = None
 
@@ -122,6 +124,7 @@ class HeadingAndOffsetClient(ActionClient):
 class ShuttleRunClient(ActionClient):
     def __init__(self, node, action_type, action_name):
         super().__init__(node, action_type, action_name)
+        node.get_logger().info("shuttle_run_client has been initialized")
         self.agent = node  # Agent node
         self.goal_handle = None
 
