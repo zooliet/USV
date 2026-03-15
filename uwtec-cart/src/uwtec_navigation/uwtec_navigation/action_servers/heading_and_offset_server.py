@@ -129,7 +129,7 @@ class HeadingAndOffsetServer(Node):
         gyro_offset = 0.0
         gyro_offsets = []
         runs = 0
-        num_runs = 4
+        num_runs = 1 # was 4
         mode = OperationMode.START_OVER
 
         # Reset ticks for each execution

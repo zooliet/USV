@@ -26,7 +26,7 @@ class NavToWpsServer(DrivingMixin, Node):
     def __init__(
         self,
         interval=0.1,
-        angular_speed=0.5,
+        angular_speed=0.4, # was 0.5
         linear_speed=0.5,
         debug=False,
     ):

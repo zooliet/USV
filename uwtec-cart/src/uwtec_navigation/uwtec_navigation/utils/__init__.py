@@ -227,9 +227,12 @@ def get_gyro_offset(heading_file_name):
         get_package_share_directory("uwtec_navigation"), "config", heading_file_name
     )
 
-    with open(heading_yaml_path, "r") as heading_file:
-        data = yaml.safe_load(heading_file)
-        offset = data.get("offset", 0.0)
+    try:
+        with open(heading_yaml_path, "r") as heading_file:
+            data = yaml.safe_load(heading_file)
+            offset = data.get("offset", 0.0)
+    except FileNotFoundError:
+        offset = 0.0
     return offset
 
 
