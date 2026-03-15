@@ -23,6 +23,12 @@ from uwtec_agent.action_clients import (
     NavToWpsClient,
 )
 
+from uwtec_navigation.utils import (
+    calc_heading_by_offset,
+    get_gyro_offset,
+)
+
+
 from asyncio_for_robotics.ros2 import (
     ThreadedSession,
     auto_session,
@@ -88,7 +94,9 @@ class Agent(Node):
         params = [] if len(data) == 1 else data[1:]
 
         if cmd == "ping":
-            response = f"pong,{self.latitude},{self.longitude},{self.yaw},{self.gps_quality},{self.num_sats}"
+            gyro_offset = get_gyro_offset("heading.yaml")
+            current_heading = calc_heading_by_offset(self.yaw, gyro_offset)
+            response = f"pong,{self.latitude},{self.longitude},{current_heading:.2f},{self.yaw:.2f},{self.gps_quality},{self.num_sats}"
             await self.redis.publish("channel::tui", response)
 
         elif cmd == "poweroff":
