@@ -17,7 +17,7 @@ async def reader(channel: PubSub):
             async with async_timeout.timeout(1):
                 message = await channel.get_message(ignore_subscribe_messages=True)
                 if message is not None:
-                    print(f"(Reader) Message Received: {message}")
+                    # print(f"(Reader) Message Received: {message}")
                     if message["data"].decode() == "connect":
                         print("(Reader) RECONNECT")
                         # os.system("ls -al")

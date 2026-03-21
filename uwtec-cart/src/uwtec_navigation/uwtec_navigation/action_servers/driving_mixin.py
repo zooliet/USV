@@ -29,8 +29,8 @@ class DrivingMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.debug = False
-        self.angular_speed = 0.5
-        self.linear_speed = 0.5
+        self.angular_speed = 0.0
+        self.linear_speed = 0.0
         self.lining_up_request = False
         self.driving_mode_disp = "N/A"
         self.cmd_vel_nav_pub = None
@@ -107,7 +107,11 @@ class DrivingMixin:
 
     def go_forward(self, driving_mode, distance=0.0):
         self.driving_mode_disp = driving_mode.name + f"({distance:.2f} m)"
-        if distance < 1.0:  # slow down when close to the goal
+        if distance < 0.5:
+            linear_speed = 0.2
+        elif distance < 1.0:
+            linear_speed = self.linear_speed * 0.3
+        elif distance < 3.0:
             linear_speed = self.linear_speed * 0.5
         else:
             linear_speed = self.linear_speed
@@ -123,20 +127,20 @@ class DrivingMixin:
 
         elif driving_mode == DrivingMode.HARD_LEFT_FORWARD:
             # print("- moving forward with steep left turn")
-            twist_msg.linear.x = linear_speed
-            twist_msg.linear.y = linear_speed * 1.4
+            twist_msg.linear.x = linear_speed * 0.7
+            twist_msg.linear.y = linear_speed
         elif driving_mode == DrivingMode.HARD_RIGHT_FORWARD:
             # print("- moving forward with steep right turn")
-            twist_msg.linear.x = linear_speed * 1.4
-            twist_msg.linear.y = linear_speed
+            twist_msg.linear.x = linear_speed
+            twist_msg.linear.y = linear_speed * 0.7
         elif driving_mode == DrivingMode.MILD_LEFT_FORWARD:
             # print("- moving forward with smooth left turn")
-            twist_msg.linear.x = linear_speed
-            twist_msg.linear.y = linear_speed * 1.2
+            twist_msg.linear.x = linear_speed * 0.9
+            twist_msg.linear.y = linear_speed
         elif driving_mode == DrivingMode.MILD_RIGHT_FORWARD:
             # print("- moving forward with smooth right turn")
-            twist_msg.linear.x = linear_speed * 1.2
-            twist_msg.linear.y = linear_speed
+            twist_msg.linear.x = linear_speed
+            twist_msg.linear.y = linear_speed * 0.9
         else:
             twist_msg.linear.x = 0.01
             twist_msg.linear.y = 0.01
@@ -150,10 +154,12 @@ class DrivingMixin:
         else:
             self.driving_mode_disp = DrivingMode.TURN_AROUND.name + f"({angle:.2f} deg)"
 
-        if abs(angle) < 3:
-            angular_speed = 0.0  # self.angular_speed * 0.5
+        if abs(angle) < 3.0:  # no need to turn if the angle is already small enough
+            angular_speed = 0.01
             self.lining_up_request = False
-        elif abs(angle) < 6:
+        elif abs(angle) < 10.0:
+            angular_speed = 0.2
+        elif abs(angle) < 30.0:
             angular_speed = self.angular_speed * 0.5
         else:
             angular_speed = self.angular_speed

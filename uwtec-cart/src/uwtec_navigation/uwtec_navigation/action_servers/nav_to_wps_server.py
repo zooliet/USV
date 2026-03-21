@@ -11,7 +11,8 @@ from uwtec_navigation.utils import (
     utm_distance,
     calc_heading_by_offset,
     get_waypoints_from_yaml,
-    get_gyro_offset,
+    get_navigation_config,
+    # get_gyro_offset,
     update_ticks,
 )
 
@@ -26,15 +27,13 @@ class NavToWpsServer(DrivingMixin, Node):
     def __init__(
         self,
         interval=0.1,
-        angular_speed=0.4, # was 0.5
-        linear_speed=0.5,
         debug=False,
     ):
         super().__init__("nav_to_wps_server_node")
         self.get_logger().info("nav_to_wps_server_node has been started.")
         self.interval = interval
-        self.angular_speed = angular_speed
-        self.linear_speed = linear_speed
+        self.angular_speed = 0.0
+        self.linear_speed = 0.0
         self.debug = debug
 
         self.debug_str = ""
@@ -91,9 +90,14 @@ class NavToWpsServer(DrivingMixin, Node):
         feedback = SimpleCommand.Feedback()
         result = SimpleCommand.Result()
 
+        # read speed settings from the config file
+        self.linear_speed = get_navigation_config("linear_speed", default=0.5)
+        self.angular_speed = get_navigation_config("angular_speed", default=0.5)
+
         # initialize local variables
         wps_coords, wps_index = get_waypoints_from_yaml(goal_handle.request.cmd)
-        gyro_offset = get_gyro_offset("heading.yaml")
+        # gyro_offset = get_gyro_offset("heading.yaml")
+        gyro_offset = get_navigation_config("gyro_offset", default=0.0)
         current_heading = calc_heading_by_offset(self.yaw, gyro_offset)
 
         p_current = (self.utm_x, self.utm_y)

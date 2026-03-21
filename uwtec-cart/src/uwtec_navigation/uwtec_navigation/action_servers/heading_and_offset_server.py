@@ -1,5 +1,3 @@
-import os
-import yaml
 from pyproj import Transformer
 from ament_index_python.packages import get_package_share_directory
 
@@ -19,6 +17,8 @@ from uwtec_navigation.utils import (
     calc_goal_heading,
     rotate_to_go,
     update_ticks,
+    set_navigation_config,
+    # get_gyro_offset,
 )
 
 
@@ -119,17 +119,13 @@ class HeadingAndOffsetServer(Node):
         result = SimpleCommand.Result()
 
         # initialize local variables
-        heading_yaml_path = os.path.join(
-            get_package_share_directory("uwtec_navigation"), "config", "heading.yaml"
-        )
-
         start_utm_x, start_utm_y = 0.0, 0.0
         end_utm_x, end_utm_y = 0.0, 0.0
         goal_heading = 0.0
         gyro_offset = 0.0
         gyro_offsets = []
         runs = 0
-        num_runs = 1 # was 4
+        num_runs = 1  # was 4
         mode = OperationMode.START_OVER
 
         # Reset ticks for each execution
@@ -198,8 +194,7 @@ class HeadingAndOffsetServer(Node):
                 self.get_logger().info(
                     f"Average offset after {runs} runs: {gyro_offset:.2f} degrees"
                 )
-                with open(heading_yaml_path, "w") as heading_file:
-                    yaml.dump({"offset": gyro_offset}, heading_file, sort_keys=False)
+                set_navigation_config("gyro_offset", gyro_offset)
                 break
 
             if goal_handle.is_cancel_requested:

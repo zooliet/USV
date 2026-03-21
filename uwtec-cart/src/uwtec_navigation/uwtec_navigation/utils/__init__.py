@@ -222,18 +222,50 @@ def get_waypoints_from_yaml(wps_name):
     return coords, 0
 
 
-def get_gyro_offset(heading_file_name):
-    heading_yaml_path = os.path.join(
-        get_package_share_directory("uwtec_navigation"), "config", heading_file_name
+def set_navigation_config(config_name, value):
+    config_file_path = os.path.join(
+        get_package_share_directory("uwtec_navigation"), "config", "navigation.yaml"
     )
 
     try:
-        with open(heading_yaml_path, "r") as heading_file:
-            data = yaml.safe_load(heading_file)
-            offset = data.get("offset", 0.0)
+        with open(config_file_path, "r") as config_file:
+            config = yaml.safe_load(config_file) or {}
     except FileNotFoundError:
-        offset = 0.0
-    return offset
+        config = {}
+
+    config[config_name] = value
+
+    with open(config_file_path, "w") as config_file:
+        yaml.safe_dump(config, config_file)
+
+
+def get_navigation_config(config_name, default=0.0):
+    config_file_path = os.path.join(
+        get_package_share_directory("uwtec_navigation"), "config", "navigation.yaml"
+    )
+
+    try:
+        with open(config_file_path, "r") as config_file:
+            config = yaml.safe_load(config_file)
+            value = config.get(config_name, default)
+    except FileNotFoundError:
+        value = default
+    return value
+
+
+# def get_gyro_offset(config_file_name):
+#     config_file_path = os.path.join(
+#         get_package_share_directory("uwtec_navigation"), "config", config_file_name
+#     )
+#
+#     try:
+#         with open(config_file_path, "r") as config_file:
+#             config = yaml.safe_load(config_file)
+#             offset = config.get("offset", 0.0)
+#     except FileNotFoundError:
+#         offset = 0.0
+#     return offset
+#
 
 
 def update_ticks(ticks_for_5_secs, ticks_for_1_sec, interval=0.1):

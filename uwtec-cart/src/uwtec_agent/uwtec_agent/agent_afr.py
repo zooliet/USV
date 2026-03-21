@@ -25,7 +25,9 @@ from uwtec_agent.action_clients import (
 
 from uwtec_navigation.utils import (
     calc_heading_by_offset,
-    get_gyro_offset,
+    # get_gyro_offset,
+    set_navigation_config,
+    get_navigation_config,
 )
 
 
@@ -88,16 +90,17 @@ class Agent(Node):
         # self.heading = east_facing_ccw_angle(self.heading)
 
     async def process(self, message):
-        self.get_logger().info(f"Received message: {message}")
+        self.get_logger().debug(f"Received message: {message}")
         data = message["data"].decode().split(":")
         cmd = data[0]
         params = [] if len(data) == 1 else data[1:]
 
         if cmd == "ping":
-            gyro_offset = get_gyro_offset("heading.yaml")
+            # gyro_offset = get_gyro_offset("heading.yaml")
+            gyro_offset = get_navigation_config("gyro_offset", 0.0)
             current_heading = calc_heading_by_offset(self.yaw, gyro_offset)
-            response = f"pong,{self.latitude},{self.longitude},{current_heading:.2f},{self.yaw:.2f},{self.gps_quality},{self.num_sats}"
-            await self.redis.publish("channel::tui", response)
+            response = f"pong:{self.latitude}:{self.longitude}:{current_heading:.2f}:{self.yaw:.2f}:{self.gps_quality}:{self.num_sats}"
+            await self.redis.publish("channel::gui", response)
 
         elif cmd == "poweroff":
             executable_py = os.path.join(
@@ -200,6 +203,102 @@ class Agent(Node):
         elif cmd == "cancel" and params[0] == "wpf":
             self.action_client_wpf.cancel()
 
+        # elif cmd == "action" and params[0] == "wpf-route":
+        #     # Expecting 8 parameters for the corners of the route rectangle
+        #     lower_left = (float(params[1]), float(params[2]))
+        #     upper_left = (float(params[3]), float(params[4]))
+        #     upper_right = (float(params[5]), float(params[6]))
+        #     lower_right = (float(params[7]), float(params[8]))
+        #
+        #     # generate waypoints for a rectangular route based on the corners
+        #     wps = find_route_rectangle_waypoints(
+        #         lower_left,
+        #         upper_left,
+        #         upper_right,
+        #         lower_right,
+        #         route="horizontal",
+        #         divisions=4,
+        #         start_from="lower_left",
+        #     )
+        #
+        #     # save the waypoints to a yaml file
+        #     wps_yaml_path = os.path.join(
+        #         get_package_share_directory("uwtec_navigation"),
+        #         "config",
+        #         "wps-route.yaml",
+        #     )
+        #     with open(wps_yaml_path, "w") as wps_file:
+        #         yaml.dump(wps, wps_file, sort_keys=False)
+        #
+        #     self.action_client_wpf.action("wps-route.yaml")
+        #
+        #     # # find the midpoint of the upper edge of the rectangle
+        #     # upper_mid = ((upper_left[0] + upper_right[0]) / 2, (upper_left[1] + upper_right[1]) / 2)
+        #     # lower_mid = ((lower_left[0] + lower_right[0]) / 2, (lower_left[1] + lower_right[1]) / 2)
+        #     #
+        #     # # create a list of waypoints that goes from lower left to upper mid, then to upper right, then to lower mid, then back to lower left
+        #     # wps = [lower_left, upper_left, upper_mid, lower_mid, lower_right, upper_right, upper_mid, lower_mid, lower_left]
+
+        elif cmd == "set" and params[0] == "linear-speed":
+            if len(params) != 2:
+                self.get_logger().info(
+                    "Invalid number of parameters for set linear-speed command"
+                )
+                return
+            try:
+                value = float(params[1])
+            except ValueError:
+                self.get_logger().info("Invalid value for linear-speed")
+                return
+
+            set_navigation_config("linear_speed", value)
+            self.get_logger().info(f"Linear speed set to {value}")
+        elif cmd == "get" and params[0] == "linear-speed":
+            linear_speed = get_navigation_config("linear_speed", 0.0)
+            self.get_logger().info(f"Linear speed: {linear_speed}")
+            response = f"response:linear-speed:{linear_speed}"
+            await self.redis.publish("channel::gui", response)
+
+        elif cmd == "set" and params[0] == "angular-speed":
+            if len(params) != 2:
+                self.get_logger().info(
+                    "Invalid number of parameters for set angular-speed command"
+                )
+                return
+            try:
+                value = float(params[1])
+            except ValueError:
+                self.get_logger().info("Invalid value for angular-speed")
+                return
+
+            set_navigation_config("angular_speed", value)
+            self.get_logger().info(f"Angular speed set to {value}")
+        elif cmd == "get" and params[0] == "angular-speed":
+            angular_speed = get_navigation_config("angular_speed", 0.0)
+            self.get_logger().info(f"Angular speed: {angular_speed}")
+            response = f"response:angular-speed:{angular_speed}"
+            await self.redis.publish("channel::gui", response)
+
+        elif cmd == "set" and params[0] == "gyro-offset":
+            if len(params) != 2:
+                self.get_logger().info(
+                    "Invalid number of parameters for set gyro-offset command"
+                )
+                return
+            try:
+                value = float(params[1])
+            except ValueError:
+                self.get_logger().info("Invalid value for gyro-offset")
+                return
+
+            set_navigation_config("gyro_offset", value)
+            self.get_logger().info(f"Gyro offset set to {value}")
+        elif cmd == "get" and params[0] == "gyro-offset":
+            gyro_offset = get_navigation_config("gyro_offset", 0.0)
+            self.get_logger().info(f"Gyro offset: {gyro_offset}")
+            response = f"response:gyro-offset:{gyro_offset}"
+            await self.redis.publish("channel::gui", response)
+
 
 async def redis_loop():
     with auto_session().lock() as session:
@@ -207,7 +306,7 @@ async def redis_loop():
 
     redis = Redis.from_url("redis://localhost")
     pubsub = redis.pubsub()
-    # await pubsub.subscribe("channel::tui", "channel::apps")
+    # await pubsub.subscribe("channel::gui", "channel::apps")
     await pubsub.subscribe("channel::agent")
 
     while True:
