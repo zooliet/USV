@@ -1,0 +1,17 @@
+# pixi environments
+**/.pixi/*
+!**/.pixi/config.toml
+
+# log
+**/log/*
+*.log
+!**/log/.keep
+
+# tmp
+**/tmp/*
+*.tmp
+!**/tmp/.keep
+
+# microros_ws
+microros_ws/*
+!microros_ws/.keep

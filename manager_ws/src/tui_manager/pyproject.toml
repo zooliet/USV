@@ -1,0 +1,10 @@
+[project]
+authors = [{name = "Junhyun Shin", email = "hl1sqi@gmail.com"}]
+dependencies = []
+name = "tui_manager"
+version = "0.1.0"
+scripts = { tui_manager = "tui_manager.uwtec_cart_tui_manager:main" }
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]

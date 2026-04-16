@@ -1,0 +1,12 @@
+# Goal
+string cmd # e.g. "forward", "turn", "stop", "drive_to"
+float32 angle # in degrees (-180, 180)
+float32 distance # in meters
+---
+# Result
+bool success
+---
+# Feedback
+int32 progress
+
+

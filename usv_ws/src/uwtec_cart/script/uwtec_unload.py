@@ -1,0 +1,35 @@
+import subprocess
+
+try:
+    result = subprocess.run(
+        ["supervisorctl", "stop", "all"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+except subprocess.CalledProcessError as e:
+    print(f"Error stopping supervisor processes: {e}")
+else:
+    print(result.stdout)
+
+processes_to_kill = [
+    "micro_ros_agent",
+    "localizer",
+    "agent",
+    "navigator",
+    "cmd_vel_joy",
+    "twist_mux",
+    "teleop_node",
+    "joy_node",
+]
+
+for process in processes_to_kill:
+    try:
+        result = subprocess.run(
+            ["pkill", "-9", process], check=True, capture_output=True, text=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error killing {process}: {e}")
+        # print(f"Error killing {process}")
+    else:
+        print(f"{process}: killed")

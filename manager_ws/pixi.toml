@@ -1,0 +1,34 @@
+[workspace]
+authors = ["Junhyun Shin <hl1sqi@gmail.com>"]
+channels = ["https://prefix.dev/conda-forge"]
+name = "manager_ws"
+platforms = ["linux-aarch64", "osx-arm64", "osx-64", "linux-64"]
+version = "0.1.0"
+preview = ["pixi-build"]
+
+[tasks]
+
+[dependencies]
+python = "3.12.12.*"
+pyright = ">=1.1.408,<2"
+async_timeout = ">=3.0.1,<4"
+textual = ">=8.2.1,<9"
+textual-dev = ">=1.8.0,<2"
+pyyaml = ">=6.0.3,<7"
+gui_manager = {path = "src/gui_manager"}
+tui_manager = {path = "src/tui_manager"}
+
+[pypi-dependencies]
+customtkinter = ">=5.2.2, <6"
+async-tkinter-loop = ">=0.10.3, <0.11"
+redis = ">=7.4.0, <8"
+textual = { version = "*", extras = ["syntax"] }
+ctkmessagebox = ">=2.7, <3"
+tkintermapview = { git = "https://github.com/alex-schulster/TkinterMapView.git" }
+geocoder = { git = "https://github.com/zooliet/geocoder" }
+
+[target.linux-aarch64.dependencies]
+tk = { version = "*", build = "xft_*" }
+
+[target.linux-64.dependencies]
+tk = { version = "*", build = "xft_*" }

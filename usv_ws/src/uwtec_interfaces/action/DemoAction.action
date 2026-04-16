@@ -1,0 +1,9 @@
+# Goal
+string cmd
+---
+# Result
+int32 result
+---
+# Feedback
+int32 feedback
+

@@ -1,0 +1,36 @@
+um980-ppp:
+  - "FRESET"
+  - "CONFIG SIGNALGROUP 2"
+  - "MODE ROVER"
+  - "CONFIG PPP CONVERGE 10 20"
+  - "CONFIG PPP ENABLE B2b-PPP"
+
+um982-ppp:
+  - "FRESET"
+  - "CONFIG SIGNALGROUP 3 6"
+  - "MODE ROVER"
+  - "CONFIG PPP CONVERGE 10 20"
+  - "CONFIG PPP ENABLE B2b-PPP"
+
+um980-100ms:
+  - "UNLOG"
+  - "GPGGA 0.1"
+
+um982-50ms:
+  - "PVTSLNA 0.05"
+  - "GPHPR 0.05"
+  - "BESTNAVA 0.05"
+  - "CONFIG PVTALG MULTI"
+
+um982-100ms:
+  - "PVTSLNA 0.1"
+  - "GPHPR: 0.1"
+  - "BESTNAVA: 0.1"
+  # - KSXT: 0.1
+  - "CONFIG: PVTALG MULTI"
+
+um980-1s:
+  - "PVTSLNA 1"
+  - "GPHPR: 1"
+  - "BESTNAVA: 1"
+  # - "KSXT: 1"
