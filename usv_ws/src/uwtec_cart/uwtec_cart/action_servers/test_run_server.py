@@ -4,6 +4,7 @@ import copy
 import rclpy
 from rclpy.node import Node
 from rclpy.action.server import ActionServer, CancelResponse
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 from geometry_msgs.msg import Twist
 from uwtec_interfaces.msg import CustomNavSat
@@ -19,7 +20,7 @@ from uwtec_cart.utils import (
     distance_to_go,
 )
 
-from uwtec_cart.utils.driving_mixin import OperationMode, DrivingMixin
+from uwtec_cart.utils.driving_mixin import OperationMode, DrivingMode, DrivingMixin
 
 
 class TestRunServer(DrivingMixin, Node):
@@ -40,6 +41,10 @@ class TestRunServer(DrivingMixin, Node):
         self.utm_x, self.utm_y = self.transformer.transform(
             self.longitude, self.latitude
         )
+        self.driving_mode = DrivingMode.READY
+        self.prev_driving_mode = DrivingMode.READY
+
+        self.callback_group = ReentrantCallbackGroup()
 
         self.action_server = ActionServer(
             self,
@@ -47,16 +52,21 @@ class TestRunServer(DrivingMixin, Node):
             "test_run",
             self.execute_callback,
             cancel_callback=self.cancel_callback,
+            callback_group=self.callback_group,
         )
 
         self.localizer_sub = self.create_subscription(
-            CustomNavSat, "/gps/custom", self.gps_custom_callback, 1
+            CustomNavSat,
+            "/gps/custom",
+            self.gps_custom_callback,
+            1,
+            callback_group=self.callback_group,
         )
 
         self.twist = Twist()
         self.prev_twist = copy.deepcopy(self.twist)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_nav", 1)
-        # self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 1) # for testing
+        self.rate = self.create_rate(int(1.0 / self.interval))
 
     def gps_custom_callback(self, msg):
         self.latitude = msg.latitude
@@ -91,14 +101,17 @@ class TestRunServer(DrivingMixin, Node):
         # initialize start and end UTM coordinates
         current_heading = calc_heading_from_yaw_and_offset(self.yaw, gyro_offset)
         goal_heading = calc_goal_heading(current_heading, by=angle)
+
+        start_utm_x, start_utm_y = self.utm_x, self.utm_y
         goal_utm_x, goal_utm_y = calc_goal_coordinates(
-            (self.utm_x, self.utm_y), distance, goal_heading
+            (start_utm_x, start_utm_y), distance, goal_heading
         )
 
         mode = OperationMode.START_OVER
+        self.driving_mode = DrivingMode.READY
+        turn_finished = False
 
         ticks = 1
-        rate = self.create_rate(int(1.0 / self.interval))
         while rclpy.ok():
             if mode == OperationMode.START_OVER:
                 if cmd == "stop":
@@ -115,10 +128,18 @@ class TestRunServer(DrivingMixin, Node):
                 distance_remaining = distance_to_go(
                     current_utm_x, current_utm_y, goal_utm_x, goal_utm_y
                 )
+                distance_traveled = distance_to_go(
+                    start_utm_x, start_utm_y, current_utm_x, current_utm_y
+                )
 
                 if cmd == "forward":
-                    if distance_remaining > 0.2:  # 20 cm tolerance
-                        self.forward(distance=distance_remaining)
+                    if (
+                        distance_traveled < distance
+                        and distance_remaining > 0.2  # 20cm
+                    ):
+                        self.forward(
+                            distance=distance_remaining, traveled=distance_traveled
+                        )
                     else:
                         mode = OperationMode.FINISHED
 
@@ -129,15 +150,44 @@ class TestRunServer(DrivingMixin, Node):
                         mode = OperationMode.FINISHED
 
                 elif cmd == "drive-to":  # turn first, then drive forward
-                    if distance_remaining > 0.2:  # or abs(rotation_remaining) > 3.0:
-                        self.turn_and_forward(
-                            distance=distance_remaining, angle=rotation_remaining
-                        )
+                    if (
+                        distance_traveled < distance
+                        and distance_remaining > 0.2  # 20cm
+                    ):
+                        if abs(rotation_remaining) <= 3.0:
+                            turn_finished = True
+
+                        if not turn_finished:
+                            self.turn(angle=rotation_remaining)
+                        else:
+                            self.forward(
+                                distance=distance_remaining, traveled=distance_traveled
+                            )
                     else:
                         mode = OperationMode.FINISHED
 
-                # timeout for forward movement: 10 seconds or distance traveled, whichever comes first
-                if check_timeout(ticks, 10.0, self.interval):
+                # drive to the goal coordinates while adjusting heading
+                elif cmd == "nav-to":
+                    # if (
+                    #     distance_traveled < distance
+                    #     and distance_remaining > 0.2  # 20cm
+                    # ):
+
+                    if self.driving_mode != self.prev_driving_mode:
+                        self.get_logger().info(f"{self.driving_mode}")
+                        self.prev_driving_mode = self.driving_mode
+
+                    if not self.go_driving(
+                        src_utm=(start_utm_x, start_utm_y),
+                        dst_utm=(goal_utm_x, goal_utm_y),
+                        current_utm=(current_utm_x, current_utm_y),
+                        current_heading=current_heading,
+                    ):
+                        mode = OperationMode.FINISHED
+
+                # timeout for forward movement: 30 seconds or distance traveled, whichever comes first
+                if check_timeout(ticks, 30.0, self.interval):
+                    # print("Timeout check: ticks =", ticks)
                     mode = OperationMode.FINISHED
 
             elif mode == OperationMode.FINISHED:
@@ -155,13 +205,14 @@ class TestRunServer(DrivingMixin, Node):
 
             try:
                 ticks += 1
-                rate.sleep()
+                self.rate.sleep()
             except Exception as e:
                 # Handle case where ROS context shuts down
                 print(e)
                 result.success = False
                 return result
 
+        # end of while loop
         self.stop()
         self.get_logger().info("test-run completed.")
         goal_handle.succeed()

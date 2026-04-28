@@ -37,16 +37,16 @@ def main(args=None):
 
     calibrate_gyro_server = CalibrateGyroServer()
     test_run_server = TestRunServer()
-    shuttle_run_server = ShuttleRunServer()
-    nav_to_wps_server = NavToWpsServer()
+    # shuttle_run_server = ShuttleRunServer()
+    # nav_to_wps_server = NavToWpsServer()
 
     try:
         asyncio.run(
             main_async(
                 calibrate_gyro_server,
                 test_run_server,
-                shuttle_run_server,
-                nav_to_wps_server,
+                # shuttle_run_server,
+                # nav_to_wps_server,
             )
         )
     except KeyboardInterrupt:
@@ -54,8 +54,8 @@ def main(args=None):
     finally:
         calibrate_gyro_server.destroy_node()
         test_run_server.destroy_node()
-        shuttle_run_server.destroy_node()
-        nav_to_wps_server.destroy_node()
+        # shuttle_run_server.destroy_node()
+        # nav_to_wps_server.destroy_node()
         rclpy.shutdown()
 
 

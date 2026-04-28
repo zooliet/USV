@@ -66,6 +66,7 @@ def utm_distance(src_pos, dst_pos):
     x1, y1 = src_pos
     x2, y2 = dst_pos
     distance_src_to_dst = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
     return distance_src_to_dst
 
 
@@ -120,7 +121,8 @@ def calc_goal_coordinates(
 
 
 def distance_to_go(src_pos_x, src_pos_y, dst_pos_x, dst_pos_y):
-    return utm_distance((src_pos_x, src_pos_y), (dst_pos_x, dst_pos_y))
+    distance = utm_distance((src_pos_x, src_pos_y), (dst_pos_x, dst_pos_y))
+    return distance
 
 
 def shortest_path_to_track(src_pos, dst_pos, current_pos):

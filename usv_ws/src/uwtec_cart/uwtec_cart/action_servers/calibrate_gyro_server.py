@@ -55,6 +55,7 @@ class CalibrateGyroServer(DrivingMixin, Node):
         self.prev_twist = copy.deepcopy(self.twist)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_nav", 1)
         # self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 1) # for testing
+        self.rate = self.create_rate(int(1.0 / self.interval))
 
     def gps_custom_callback(self, msg):
         self.latitude = msg.latitude
@@ -91,7 +92,6 @@ class CalibrateGyroServer(DrivingMixin, Node):
         mode = OperationMode.START_OVER
 
         ticks = 1
-        rate = self.create_rate(int(1.0 / self.interval))
         while rclpy.ok():
             if mode == OperationMode.START_OVER:
                 start_utm_x, start_utm_y = self.utm_x, self.utm_y
@@ -125,7 +125,7 @@ class CalibrateGyroServer(DrivingMixin, Node):
 
             try:
                 ticks += 1
-                rate.sleep()
+                self.rate.sleep()
             except Exception as e:
                 # Handle case where ROS context shuts down
                 print(e)

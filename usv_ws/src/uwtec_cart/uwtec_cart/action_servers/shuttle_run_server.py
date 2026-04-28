@@ -121,9 +121,9 @@ class ShuttleRunServer(DrivingMixin, Node):
                     current_heading,
                 )
 
-                # we give 60.0 seconds for the shuttle run to complete each way, but it can be stopped earlier if it reaches the destination
+                # we give 30.0 seconds for the shuttle run to complete each way, but it can be stopped earlier if it reaches the destination
                 if (
-                    check_timeout(ticks, 60.0, self.interval)
+                    check_timeout(ticks, 30.0, self.interval)
                     or distance_remaining < 0.2
                 ):  # 20 cm tolerance
                     self.stop()

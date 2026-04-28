@@ -18,11 +18,11 @@ from asyncio_for_robotics.ros2 import (
     set_auto_session,
 )
 
-# assume GNSS data comes at 10 Hz and gyro data comes at 50 Hz
+# assume GNSS data comes at 10 Hz and gyro data comes at 100 Hz
 GNSS_SAMPLING = 0.1  # 0.1 sec, 100 ms, 10 Hz
 GYRO_SAMPLING = 0.01  # 0.01 sec, 10 ms, 100 Hz
 
-# for debugging: print stats every 100 frames for GNSS and every 500 frames for gyro
+# for debugging: print stats every 100 frames for GNSS and every 1000 frames for gyro
 GNSS_DEBUG_INTERVAL = 100  # every 100 frames: 0.1 * 100 = 10 sec
 GYRO_DEBUG_INTERVAL = 1000  # every 1000 frames: 0.01 x 1000 == 10 sec
 
@@ -35,8 +35,12 @@ class Localizer(Node):
         self.interval: float = interval
         self.debug: bool = debug
 
-        self.latitude: float = 0.0
-        self.longitude: float = 0.0
+        # Initialize GPS-related attributes - will be updated by GPS callback
+        self.latitude: float = 37.719457
+        self.longitude: float = 127.525468
+        self.prev_latitude: float = 37.719457
+        self.prev_longitude: float = 127.525468
+
         self.num_sats: int = 0
         self.gps_qual: int = 0
         self.gyro_heading: float = 0.0
@@ -54,6 +58,13 @@ class Localizer(Node):
                 f"Num Sats: {self.num_sats}, GPS Qual: {self.gps_qual}, "
                 f"Gyro Heading: {self.gyro_heading:.2f}"
             )
+
+        if self.latitude == 0.0 or self.longitude == 0.0:
+            self.latitude = self.prev_latitude
+            self.longitude = self.prev_longitude
+        else:
+            self.prev_latitude = self.latitude
+            self.prev_longitude = self.longitude
 
         this_time = self.get_clock().now().to_msg()
         msg = CustomNavSat()

@@ -120,6 +120,7 @@ class Agent(Node):
                 "stop",
                 "turn",
                 "drive-to",
+                "nav-to",
             ]:
                 self.test_run_client.cancel()
             else:
