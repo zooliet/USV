@@ -4,7 +4,7 @@ import copy
 import rclpy
 from rclpy.node import Node
 from rclpy.action.server import ActionServer, CancelResponse
-from rclpy.callback_groups import ReentrantCallbackGroup
+# from rclpy.callback_groups import ReentrantCallbackGroup
 
 from geometry_msgs.msg import Twist
 from uwtec_interfaces.msg import CustomNavSat
@@ -44,7 +44,7 @@ class TestRunServer(DrivingMixin, Node):
         self.driving_mode = DrivingMode.READY
         self.prev_driving_mode = DrivingMode.READY
 
-        self.callback_group = ReentrantCallbackGroup()
+        # self.callback_group = ReentrantCallbackGroup()
 
         self.action_server = ActionServer(
             self,
@@ -52,7 +52,7 @@ class TestRunServer(DrivingMixin, Node):
             "test_run",
             self.execute_callback,
             cancel_callback=self.cancel_callback,
-            callback_group=self.callback_group,
+            # callback_group=self.callback_group,
         )
 
         self.localizer_sub = self.create_subscription(
@@ -60,7 +60,7 @@ class TestRunServer(DrivingMixin, Node):
             "/gps/custom",
             self.gps_custom_callback,
             1,
-            callback_group=self.callback_group,
+            # callback_group=self.callback_group,
         )
 
         self.twist = Twist()
