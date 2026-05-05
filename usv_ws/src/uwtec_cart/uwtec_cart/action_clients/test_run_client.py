@@ -11,30 +11,32 @@ class TestRunClient(ActionClient):
         self.node = node  # Agent node
         self.goal_handle = None
 
-    def action(self, cmd, distance=0.0, angle=0.0):
+    def action(self, cmd, distance=0.0, angle=0.0, left_speed=0.0, right_speed=0.0):
         # Cancel any existing goal before sending a new one
         if self.goal_handle:
             self.cancel_future = self.goal_handle.cancel_goal_async()
             self.cancel_future.add_done_callback(self.cancel_response_callback)
             self.goal_handle = None  # Clear the goal handle
+        else:
+            goal_msg = SimpleNav.Goal()
+            # print("TestRunClient action called with cmd:", cmd)
 
-        goal_msg = SimpleNav.Goal()
-        # print("TestRunClient action called with cmd:", cmd)
+            goal_msg.cmd = cmd
+            goal_msg.distance = distance
+            goal_msg.angle = angle
+            goal_msg.left_speed = left_speed
+            goal_msg.right_speed = right_speed
 
-        goal_msg.cmd = cmd
-        goal_msg.distance = distance
-        goal_msg.angle = angle
+            self.node.get_logger().info("Waiting for action server...")
+            self.wait_for_server()  # Wait for the server to be ready
 
-        self.node.get_logger().info("Waiting for action server...")
-        self.wait_for_server()  # Wait for the server to be ready
+            self.node.get_logger().info("Sending goal request...")
+            # Send goal asynchronously and set up done and feedback callbacks
+            self.send_goal_future = self.send_goal_async(
+                goal_msg, feedback_callback=self.feedback_callback
+            )
 
-        self.node.get_logger().info("Sending goal request...")
-        # Send goal asynchronously and set up done and feedback callbacks
-        self.send_goal_future = self.send_goal_async(
-            goal_msg, feedback_callback=self.feedback_callback
-        )
-
-        self.send_goal_future.add_done_callback(self.goal_response_callback)
+            self.send_goal_future.add_done_callback(self.goal_response_callback)
 
     def feedback_callback(self, feedback_msg):
         feedback = feedback_msg.feedback

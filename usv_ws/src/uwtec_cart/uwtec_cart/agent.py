@@ -119,10 +119,22 @@ class Agent(Node):
                 "forward",
                 "stop",
                 "turn",
-                "drive-to",
+                # "drive-to",
                 "nav-to",
+                "motor",
             ]:
                 self.test_run_client.cancel()
+
+            if params[0] == "motor":  # test-run:motor:right_speed:left_speed
+                try:
+                    left_speed = float(params[1])
+                    right_speed = float(params[2])
+                except (IndexError, ValueError):
+                    left_speed = 0.0
+                    right_speed = 0.0
+                self.test_run_client.action(
+                    cmd="motor", left_speed=left_speed, right_speed=right_speed
+                )
             else:
                 cmd = params[0]
                 try:
@@ -131,7 +143,7 @@ class Agent(Node):
                 except (IndexError, ValueError):
                     distance = 0.0
                     angle = 0.0
-                self.test_run_client.action(cmd, distance, angle)
+                self.test_run_client.action(cmd=cmd, distance=distance, angle=angle)
 
         elif cmd == "calibrate-gyro":
             self.get_logger().info("Received calibrate-gyro command.")

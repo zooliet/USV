@@ -17,7 +17,7 @@ from uwtec_cart.utils import (
     calc_offset,
 )
 
-from uwtec_cart.utils.driving_mixin import OperationMode, DrivingMixin
+from uwtec_cart.utils.driving_mixin import DrivingMode, DrivingMixin
 
 
 class CalibrateGyroServer(DrivingMixin, Node):
@@ -89,22 +89,21 @@ class CalibrateGyroServer(DrivingMixin, Node):
         start_utm_x, start_utm_y = self.utm_x, self.utm_y
         end_utm_x, end_utm_y = self.utm_x, self.utm_y
 
-        mode = OperationMode.START_OVER
+        mode = DrivingMode.READY
 
         ticks = 1
         while rclpy.ok():
-            if mode == OperationMode.START_OVER:
+            if mode == DrivingMode.READY:
                 start_utm_x, start_utm_y = self.utm_x, self.utm_y
-                mode = OperationMode.RUNNING
+                mode = DrivingMode.CALIBRATING
 
-            elif mode == OperationMode.RUNNING:
+            elif mode == DrivingMode.CALIBRATING:
                 if check_timeout(ticks, 5.0, self.interval):
-                    self.stop()
-                    mode = OperationMode.FINISHED
+                    mode = DrivingMode.FINISHED
                 else:
                     self.simple_forward()
 
-            elif mode == OperationMode.FINISHED:
+            elif mode == DrivingMode.FINISHED:
                 self.stop()
                 end_utm_x, end_utm_y = self.utm_x, self.utm_y
                 bearing = utm_bearing(
@@ -112,7 +111,7 @@ class CalibrateGyroServer(DrivingMixin, Node):
                 )
                 gyro_offset = calc_offset(bearing, self.yaw)
                 set_config_value("gyro_offset", gyro_offset)
-                break
+                break  # exit while loop after finishing calibration
 
             if goal_handle.is_cancel_requested:
                 self.stop()
@@ -132,6 +131,7 @@ class CalibrateGyroServer(DrivingMixin, Node):
                 result.success = False
                 return result
 
+        # end of while loop: calibration finished successfully
         self.stop()
         self.get_logger().info("calibrate-gyro completed.")
         goal_handle.succeed()

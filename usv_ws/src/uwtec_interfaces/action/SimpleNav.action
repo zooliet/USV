@@ -1,7 +1,9 @@
 # Goal
-string cmd # e.g. "forward", "turn", "stop", "drive_to"
+string cmd # e.g. "forward", "turn", "stop", "drive_to", "nav-to", "motor"
 float32 angle # in degrees (-180, 180)
 float32 distance # in meters
+float32 left_speed # in 0.0-1.0
+float32 right_speed # in 0.0-1.0
 ---
 # Result
 bool success

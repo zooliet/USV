@@ -4,7 +4,6 @@ import copy
 import rclpy
 from rclpy.node import Node
 from rclpy.action.server import ActionServer, CancelResponse
-# from rclpy.callback_groups import ReentrantCallbackGroup
 
 from geometry_msgs.msg import Twist
 from uwtec_interfaces.msg import CustomNavSat
@@ -20,7 +19,7 @@ from uwtec_cart.utils import (
     distance_to_go,
 )
 
-from uwtec_cart.utils.driving_mixin import OperationMode, DrivingMode, DrivingMixin
+from uwtec_cart.utils.driving_mixin import DrivingMode, DrivingMixin
 
 
 class TestRunServer(DrivingMixin, Node):
@@ -41,10 +40,6 @@ class TestRunServer(DrivingMixin, Node):
         self.utm_x, self.utm_y = self.transformer.transform(
             self.longitude, self.latitude
         )
-        self.driving_mode = DrivingMode.READY
-        self.prev_driving_mode = DrivingMode.READY
-
-        # self.callback_group = ReentrantCallbackGroup()
 
         self.action_server = ActionServer(
             self,
@@ -52,7 +47,6 @@ class TestRunServer(DrivingMixin, Node):
             "test_run",
             self.execute_callback,
             cancel_callback=self.cancel_callback,
-            # callback_group=self.callback_group,
         )
 
         self.localizer_sub = self.create_subscription(
@@ -60,7 +54,6 @@ class TestRunServer(DrivingMixin, Node):
             "/gps/custom",
             self.gps_custom_callback,
             1,
-            # callback_group=self.callback_group,
         )
 
         self.twist = Twist()
@@ -91,6 +84,8 @@ class TestRunServer(DrivingMixin, Node):
         cmd = goal_handle.request.cmd
         distance = goal_handle.request.distance
         angle = goal_handle.request.angle
+        left_speed = goal_handle.request.left_speed
+        right_speed = goal_handle.request.right_speed
 
         # get *_speed variables from config/system.yaml and assign to instance variables
         # these values are consumed in methods of DrivingMixin
@@ -107,98 +102,68 @@ class TestRunServer(DrivingMixin, Node):
             (start_utm_x, start_utm_y), distance, goal_heading
         )
 
-        mode = OperationMode.START_OVER
-        self.driving_mode = DrivingMode.READY
-        turn_finished = False
+        mode = DrivingMode.READY
+        prev_mode = DrivingMode.READY
 
         ticks = 1
         while rclpy.ok():
-            if mode == OperationMode.START_OVER:
-                if cmd == "stop":
-                    mode = OperationMode.FINISHED
-                else:
-                    mode = OperationMode.RUNNING
+            if mode != prev_mode:
+                self.get_logger().info(f"{mode}")
+                prev_mode = mode
 
-            elif mode == OperationMode.RUNNING:
-                current_utm_x, current_utm_y = self.utm_x, self.utm_y
-                current_heading = calc_heading_from_yaw_and_offset(
-                    self.yaw, gyro_offset
-                )
-                rotation_remaining = rotate_to_go(current_heading, goal_heading)
-                distance_remaining = distance_to_go(
-                    current_utm_x, current_utm_y, goal_utm_x, goal_utm_y
-                )
-                distance_traveled = distance_to_go(
-                    start_utm_x, start_utm_y, current_utm_x, current_utm_y
-                )
-
+            if mode == DrivingMode.READY:
                 if cmd == "forward":
-                    if (
-                        distance_traveled < distance
-                        and distance_remaining > 0.2  # 20cm
-                    ):
-                        self.forward(
-                            distance=distance_remaining, traveled=distance_traveled
-                        )
-                    else:
-                        mode = OperationMode.FINISHED
-
+                    mode = DrivingMode.FORWARD
                 elif cmd == "turn":
-                    if abs(rotation_remaining) > 3.0:
-                        self.turn(angle=rotation_remaining)
-                    else:
-                        mode = OperationMode.FINISHED
-
-                elif cmd == "drive-to":  # turn first, then drive forward
-                    if (
-                        distance_traveled < distance
-                        and distance_remaining > 0.2  # 20cm
-                    ):
-                        if abs(rotation_remaining) <= 3.0:
-                            turn_finished = True
-
-                        if not turn_finished:
-                            self.turn(angle=rotation_remaining)
-                        else:
-                            self.forward(
-                                distance=distance_remaining, traveled=distance_traveled
-                            )
-                    else:
-                        mode = OperationMode.FINISHED
-
-                # drive to the goal coordinates while adjusting heading
+                    mode = DrivingMode.TURN_TEST
                 elif cmd == "nav-to":
-                    # if (
-                    #     distance_traveled < distance
-                    #     and distance_remaining > 0.2  # 20cm
-                    # ):
+                    mode = DrivingMode.RUNNING
+                elif cmd == "stop":
+                    mode = DrivingMode.FINISHED
+                elif cmd == "motor":
+                    mode = DrivingMode.MOTOR_TEST
 
-                    if self.driving_mode != self.prev_driving_mode:
-                        self.get_logger().info(f"{self.driving_mode}")
-                        self.prev_driving_mode = self.driving_mode
+            elif mode == DrivingMode.FINISHED:
+                self.stop()
+                break  # end of while loop
 
-                    if not self.go_driving(
-                        src_utm=(start_utm_x, start_utm_y),
-                        dst_utm=(goal_utm_x, goal_utm_y),
+            else:
+                if mode == DrivingMode.MOTOR_TEST:
+                    self.simple_forward(left_speed=left_speed, right_speed=right_speed)
+
+                # elif mode == DrivingMode.TURN_TEST:
+                #     current_heading = calc_heading_from_yaw_and_offset(
+                #         self.yaw, gyro_offset
+                #     )
+                #     rotation_remaining = rotate_to_go(current_heading, goal_heading)
+                #     if abs(rotation_remaining) < 3.0:
+                #         mode = DrivingMode.FINISHED
+                #     else:
+                #         self.turn(rotation_remaining)
+
+                else:
+                    current_utm_x, current_utm_y = self.utm_x, self.utm_y
+                    current_heading = calc_heading_from_yaw_and_offset(
+                        self.yaw, gyro_offset
+                    )
+                    mode = self.go_driving(
+                        mode=mode,
                         current_utm=(current_utm_x, current_utm_y),
                         current_heading=current_heading,
-                    ):
-                        mode = OperationMode.FINISHED
+                        start_utm=(start_utm_x, start_utm_y),
+                        goal_utm=(goal_utm_x, goal_utm_y),
+                    )
 
                 # timeout for forward movement: 30 seconds or distance traveled, whichever comes first
                 if check_timeout(ticks, 30.0, self.interval):
                     # print("Timeout check: ticks =", ticks)
-                    mode = OperationMode.FINISHED
+                    mode = DrivingMode.FINISHED
 
-            elif mode == OperationMode.FINISHED:
-                self.stop()
-                break
-
-            if goal_handle.is_cancel_requested:
-                self.stop()
-                self.get_logger().info("test-run cancelled during execution.")
-                goal_handle.canceled()
-                return SimpleNav.Result(success=False)
+                if goal_handle.is_cancel_requested:
+                    self.stop()
+                    self.get_logger().info("test-run cancelled during execution.")
+                    goal_handle.canceled()
+                    return SimpleNav.Result(success=False)
 
             # feedback.progress = 0
             # goal_handle.publish_feedback(feedback)

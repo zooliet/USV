@@ -9,24 +9,29 @@ from uwtec_cart.utils import (
 )
 
 
-class OperationMode(Enum):
-    START_OVER = 1
-    RUNNING = 2
-    PAUSED = 3
-    TURN_AROUND = 4
-    FINISHED = 5
+# class OperationMode(Enum):
+#     START_OVER = 1
+#     RUNNING = 2
+#     PAUSED = 3
+#     TURN_AROUND = 4
+#     FINISHED = 5
 
 
 class DrivingMode(Enum):
-    READY = 0
-    FORWARD = 1
-    HARD_LEFT_FORWARD = 2
-    HARD_RIGHT_FORWARD = 3
-    MILD_LEFT_FORWARD = 4
-    MILD_RIGHT_FORWARD = 5
-    TURN_AROUND = 6
-    STOP = 7
-    RETURN_TO_ROUTE = 8
+    READY = 1
+    RUNNING = 2
+    FINISHED = 3
+    # HARD_LEFT_FORWARD = 2
+    # HARD_RIGHT_FORWARD = 3
+    # MILD_LEFT_FORWARD = 4
+    # MILD_RIGHT_FORWARD = 5
+    FORWARD = 4
+    TURN_AROUND = 5
+    TURN_TEST = 6
+    RETURN_TO_ROUTE = 7
+    STOP = 8
+    CALIBRATING = 9
+    MOTOR_TEST = 10
 
 
 class DrivingMixin:
@@ -36,124 +41,87 @@ class DrivingMixin:
         self.debug = False
         self.linear_speed = 0.0
         self.angular_speed = 0.0
-        self.prev_linear_speed = 0.0
-        self.prev_angular_speed = 0.0
-        self.lining_up_requested = False
-        self.driving_mode = DrivingMode.READY
+        # self.prev_linear_speed = 0.0
+        # self.prev_angular_speed = 0.0
+
         self.cmd_vel_pub = None
         self.twist = Twist()
         self.prev_twist = copy.deepcopy(self.twist)
 
-    def go_driving(self, src_utm, dst_utm, current_utm, current_heading):
-        distance_src_to_dst, heading_src_to_dst = distance_and_bearing_xy(
-            src_utm, dst_utm
-        )
-        distance_src_to_current, heading_src_to_current = distance_and_bearing_xy(
-            src_utm, current_utm
-        )
-        distance_current_to_dst, heading_current_to_dst = distance_and_bearing_xy(
-            current_utm, dst_utm
+    def go_driving(
+        self,
+        mode,
+        current_utm,
+        current_heading,
+        start_utm,  # src_utm,
+        goal_utm,  # dst_utm,
+    ) -> DrivingMode:
+        distance_planned, heading_planned = distance_and_bearing_xy(start_utm, goal_utm)
+        distance_traveled, _ = distance_and_bearing_xy(start_utm, current_utm)
+        distance_remaining, heading_to_goal = distance_and_bearing_xy(
+            current_utm, goal_utm
         )
         distance_to_track, heading_to_track = shortest_path_to_track(
-            src_utm, dst_utm, current_utm
+            start_utm, goal_utm, current_utm
         )
 
-        rotation_remaining = rotate_to_go(current_heading, heading_current_to_dst)
+        if mode == DrivingMode.STOP:
+            self.stop()
+            mode = DrivingMode.FINISHED
 
-        # If we are currently in TURN_AROUND mode, we want to finish turning around before doing anything else
-        if self.driving_mode == DrivingMode.TURN_AROUND:
-            if abs(rotation_remaining) < 3.0:
-                self.driving_mode = DrivingMode.READY
+        elif mode == DrivingMode.FORWARD:
+            if distance_traveled > distance_planned or distance_remaining < 0.2:
+                mode = DrivingMode.FINISHED
             else:
-                self.turn(rotation_remaining)
-            return distance_current_to_dst
+                self.forward(distance_remaining, distance_traveled)
 
-        # # If we are currently in RETURN_TO_ROUTE mode, we want to prioritize returning to the route before doing anything else
-        # if self.driving_mode == DrivingMode.RETURN_TO_ROUTE:
-        #     # if close enough to track, switch back to forward mode
-        #     if distance_to_track < 0.2:
-        #         self.driving_mode = DrivingMode.READY
-        #     else:
-        #         rotation_remaining = rotate_to_go(current_heading, heading_to_track)
-        #         self.turn_and_forward(distance_to_track, rotation_remaining)
-        #     return distance_current_to_dst
+        elif mode == DrivingMode.TURN_TEST:
+            rotation_remaining = rotate_to_go(current_heading, heading_planned)
+            if abs(rotation_remaining) < 3.0:
+                mode = DrivingMode.FINISHED
+            else:
+                self.turn(angle=rotation_remaining)
 
-        # If we have reached the destination (within 20 cm) and are past the destination, we can stop and switch to READY mode
-        if (
-            distance_src_to_current > distance_src_to_dst
-            and distance_current_to_dst < 0.2
-        ):
-            self.driving_mode = DrivingMode.READY
-            return 0.0  # reached destination, no need to move
+        elif mode == DrivingMode.TURN_AROUND:
+            rotation_remaining = rotate_to_go(current_heading, heading_to_goal)
+            if abs(rotation_remaining) < 3.0:
+                mode = DrivingMode.RUNNING
+            else:
+                self.turn(angle=rotation_remaining)
 
-        # # If off track by more than 1m, prioritize returning to route
-        # if distance_to_track > 1.0:
-        #     self.driving_mode = DrivingMode.RETURN_TO_ROUTE
-        #     return distance_current_to_dst
+        # If we are currently in RETURN_TO_ROUTE mode, we want to prioritize returning to the route before doing anything else
+        elif mode == DrivingMode.RETURN_TO_ROUTE:
+            # if close enough to track, switch back to running mode
+            if distance_to_track < 0.2:
+                mode = DrivingMode.RUNNING
+            else:
+                rotation_remaining = rotate_to_go(current_heading, heading_to_track)
+                self.turn_and_forward(
+                    distance=distance_to_track, angle=rotation_remaining
+                )
 
-        # If need to turn more than 60 degrees, prioritize turning around in place before moving forward
-        if abs(rotation_remaining) > 60.0:
-            self.driving_mode = DrivingMode.TURN_AROUND
-            return distance_current_to_dst
+        elif mode == DrivingMode.RUNNING:
+            rotation_remaining = rotate_to_go(current_heading, heading_to_goal)
+            if distance_traveled > distance_planned or distance_remaining < 0.2:
+                mode = DrivingMode.FINISHED
+            # # if off track by more than 1m, prioritize returning to route before moving forward
+            # elif distance_to_track > 1.0:
+            #     mode = DrivingMode.RETURN_TO_ROUTE
+            # if need to turn more than 60 degrees, prioritize turning around in place before moving forward
+            elif abs(rotation_remaining) > 60.0:
+                mode = DrivingMode.TURN_AROUND
+            # otherwise, turn and forward simultaneously towards the destination
+            else:
+                self.steering_forward(
+                    distance=distance_remaining,
+                    angle=rotation_remaining,
+                    traveled=distance_traveled,
+                )
 
-        # Otherwise, turn and forward simultaneously towards the destination
-        self.steering_forward(
-            distance=distance_current_to_dst,
-            angle=rotation_remaining,
-            traveled=distance_src_to_current,
-        )
-        return distance_current_to_dst
+        else:
+            pass  # do not change mode
 
-    # def go_driving_old(self, src_utm, dst_utm, current_utm, current_heading):
-    #     distance_src_to_dst, heading_src_to_dst = distance_and_bearing_xy(
-    #         src_utm, dst_utm
-    #     )
-    #     distance_src_to_current, heading_src_to_current = distance_and_bearing_xy(
-    #         src_utm, current_utm
-    #     )
-    #     distance_current_to_dst, heading_current_to_dst = distance_and_bearing_xy(
-    #         current_utm, dst_utm
-    #     )
-    #     distance_to_track, heading_to_track = shortest_path_to_track(
-    #         src_utm, dst_utm, current_utm
-    #     )
-    #
-    #     if (
-    #         distance_src_to_current > distance_src_to_dst
-    #         and distance_current_to_dst < 0.2
-    #     ):  # 20 cm tolerance
-    #         return 0.0  # reached destination, no need to move
-    #
-    #     if self.driving_mode == DrivingMode.RETURN_TO_ROUTE:
-    #         if (
-    #             distance_to_track < 0.2
-    #         ):  # if close enough to track, switch back to forward mode
-    #             self.driving_mode = DrivingMode.READY
-    #         else:
-    #             rotation_remaining = rotate_to_go(current_heading, heading_to_track)
-    #             self.turn_and_forward(distance_to_track, rotation_remaining)
-    #
-    #     else:
-    #         if (
-    #             distance_to_track > 1.0
-    #         ):  # if off track by more than 1m, prioritize returning to route
-    #             self.driving_mode = DrivingMode.RETURN_TO_ROUTE
-    #         else:
-    #             rotation_remaining = rotate_to_go(
-    #                 current_heading, heading_current_to_dst
-    #             )
-    #             # if need to turn more than 30 degrees, turn in place
-    #             if abs(rotation_remaining) > 30.0:
-    #                 # if abs(rotation_remaining) > 180.0:
-    #                 #     print(
-    #                 #         f"Yay: {current_heading:.2f} -> {heading_current_to_dst:.2f} = {rotation_remaining:.2f}"
-    #                 #     )
-    #                 self.turn(rotation_remaining)
-    #             # otherwise, turn and forward simultaneously
-    #             else:
-    #                 self.steering_forward(distance_current_to_dst, rotation_remaining)
-    #
-    #     return distance_current_to_dst
+        return mode
 
     def stop(self):
         if self.cmd_vel_pub is not None:
@@ -162,9 +130,13 @@ class DrivingMixin:
             self.cmd_vel_pub.publish(self.twist)
             self.prev_twist = copy.deepcopy(self.twist)
 
-    def simple_forward(self):
-        self.twist.linear.x = self.linear_speed
-        self.twist.linear.y = self.linear_speed
+    def simple_forward(self, left_speed: float = 0.0, right_speed: float = 0.0):
+        if left_speed == 0.0 or right_speed == 0.0:
+            self.twist.linear.x = self.linear_speed
+            self.twist.linear.y = self.linear_speed
+        else:
+            self.twist.linear.x = left_speed
+            self.twist.linear.y = right_speed
 
         # Only publish if not already moving forward to avoid unnecessary messages
         if self.twist != self.prev_twist and self.cmd_vel_pub is not None:

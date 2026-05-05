@@ -111,6 +111,7 @@ def calc_goal_coordinates(
     # current_coordinates: (utm_x, utm_y)
     # distance: in meters
     # goal_heading: positive(0 ~ 360) for ccw
+    distance = max(1.0, distance)  # ensure non-zero distance
     utm_x, utm_y = current_coordinates
     rad = math.radians(goal_heading)
     delta_x = distance * math.cos(rad)
