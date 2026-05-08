@@ -9,14 +9,6 @@ from uwtec_cart.utils import (
 )
 
 
-# class OperationMode(Enum):
-#     START_OVER = 1
-#     RUNNING = 2
-#     PAUSED = 3
-#     TURN_AROUND = 4
-#     FINISHED = 5
-
-
 class DrivingMode(Enum):
     READY = 1
     RUNNING = 2
@@ -41,8 +33,6 @@ class DrivingMixin:
         self.debug = False
         self.linear_speed = 0.0
         self.angular_speed = 0.0
-        # self.prev_linear_speed = 0.0
-        # self.prev_angular_speed = 0.0
 
         self.cmd_vel_pub = None
         self.twist = Twist()
@@ -104,12 +94,15 @@ class DrivingMixin:
             rotation_remaining = rotate_to_go(current_heading, heading_to_goal)
             if distance_traveled > distance_planned or distance_remaining < 0.2:
                 mode = DrivingMode.FINISHED
-            # # if off track by more than 1m, prioritize returning to route before moving forward
-            # elif distance_to_track > 1.0:
-            #     mode = DrivingMode.RETURN_TO_ROUTE
+
+            # if off track by more than 1m, prioritize returning to route before moving forward
+            elif distance_to_track > 1.0:
+                mode = DrivingMode.RETURN_TO_ROUTE
+
             # if need to turn more than 60 degrees, prioritize turning around in place before moving forward
             elif abs(rotation_remaining) > 60.0:
                 mode = DrivingMode.TURN_AROUND
+
             # otherwise, turn and forward simultaneously towards the destination
             else:
                 self.steering_forward(
@@ -164,10 +157,6 @@ class DrivingMixin:
         if self.twist != self.prev_twist and self.cmd_vel_pub is not None:
             self.cmd_vel_pub.publish(self.twist)
             self.prev_twist = copy.deepcopy(self.twist)
-        # else:
-        #     print(
-        #         f"Moving forward with linear speed: {linear_speed:.2f} for distance: {distance:.2f}"
-        #     )
 
     def steering_forward(self, distance: float, angle: float, traveled: float = 0.0):
         # print(f"Distance to target: {distance:.2f}, Distance traveled: {traveled:.2f}")

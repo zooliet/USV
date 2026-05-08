@@ -2,6 +2,7 @@ import os
 import argparse
 from typing import cast
 from ament_index_python.packages import get_package_share_directory
+import yaml
 
 import asyncio
 import async_timeout
@@ -163,6 +164,126 @@ class Agent(Node):
                     )
                 else:
                     self.shuttle_run_client.action(latitude, longitude)
+
+        elif cmd == "upload-wps":  # upload-wps:wps.yaml:lat1,lon1:lat2,lon2:...
+            self.get_logger().info("Received upload-wps command.")
+            if len(params) < 2:
+                self.get_logger().error(
+                    "Invalid upload-wps command format. Expected: upload-wps:filename:lat1,lon1:lat2,lon2:..."
+                )
+            else:
+                filename = params[0]
+                waypoints_str = params[1:]
+                waypoints = []
+                for wp in waypoints_str:
+                    try:
+                        lat, lon = map(float, wp.split(","))
+                        coord = {"latitude": lat, "longitude": lon}
+                        waypoints.append(coord)
+                    except ValueError:
+                        self.get_logger().error(
+                            f"Invalid waypoint format: {wp}. Expected: <latitude>,<longitude>"
+                        )
+                if waypoints:
+                    # Save waypoints to a YAML file
+                    wps_dir = os.path.join(
+                        get_package_share_directory("uwtec_cart"), "routes"
+                    )
+                    os.makedirs(wps_dir, exist_ok=True)
+                    file_path = os.path.join(wps_dir, filename)
+                    # Save waypoints in a simple YAML format
+                    with open(file_path, "w") as wps_file:
+                        yaml.dump(waypoints, wps_file, sort_keys=False)
+
+                    self.get_logger().info(f"Waypoints saved to {file_path}")
+
+        elif cmd == "append-wps":  # append-wps:wps.yaml:lat1,lon1:lat2,lon2:...
+            self.get_logger().info("Received append-wps command.")
+            if len(params) < 2:
+                self.get_logger().error(
+                    "Invalid append-wps command format. Expected: append-wps:filename:lat1,lon1:lat2,lon2:..."
+                )
+            else:
+                filename = params[0]
+                waypoints_str = params[1:]
+                waypoints = []
+                for wp in waypoints_str:
+                    try:
+                        lat, lon = map(float, wp.split(","))
+                        coord = {"latitude": lat, "longitude": lon}
+                        waypoints.append(coord)
+                    except ValueError:
+                        self.get_logger().error(
+                            f"Invalid waypoint format: {wp}. Expected: <latitude>,<longitude>"
+                        )
+                if waypoints:
+                    # Append waypoints to an existing YAML file or create a new one if it doesn't exist
+                    wps_dir = os.path.join(
+                        get_package_share_directory("uwtec_cart"), "routes"
+                    )
+                    os.makedirs(wps_dir, exist_ok=True)
+                    file_path = os.path.join(wps_dir, filename)
+
+                    existing_waypoints = []
+                    if os.path.exists(file_path):
+                        with open(file_path, "r") as wps_file:
+                            try:
+                                existing_waypoints = yaml.safe_load(wps_file) or []
+                            except yaml.YAMLError as e:
+                                self.get_logger().error(
+                                    f"Error reading existing waypoints from {file_path}: {e}"
+                                )
+
+                    combined_waypoints = existing_waypoints + waypoints
+                    with open(file_path, "w") as wps_file:
+                        yaml.dump(combined_waypoints, wps_file, sort_keys=False)
+
+                    self.get_logger().info(f"Waypoints appended to {file_path}")
+
+        elif cmd == "clear-wps":  # clear-wps:wps.yaml
+            self.get_logger().info("Received clear-wps command.")
+            if len(params) < 1:
+                self.get_logger().error(
+                    "Invalid clear-wps command format. Expected: clear-wps:filename"
+                )
+            else:
+                filename = params[0]
+                wps_dir = os.path.join(
+                    get_package_share_directory("uwtec_cart"), "routes"
+                )
+                file_path = os.path.join(wps_dir, filename)
+                if os.path.exists(file_path):
+                    with open(file_path, "w") as wps_file:
+                        yaml.dump(
+                            [], wps_file
+                        )  # Clear waypoints by writing an empty list
+                    self.get_logger().info(f"Waypoints cleared in {file_path}")
+                else:
+                    self.get_logger().error(
+                        f"Waypoint file {file_path} does not exist."
+                    )
+
+        elif cmd == "delete-wps":  # delete-wps:wps.yaml
+            self.get_logger().info("Received delete-wps command.")
+            if len(params) < 1:
+                self.get_logger().error(
+                    "Invalid delete-wps command format. Expected: delete-wps:filename"
+                )
+            else:
+                filename = params[0]
+                wps_dir = os.path.join(
+                    get_package_share_directory("uwtec_cart"), "routes"
+                )
+                file_path = os.path.join(wps_dir, filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    self.get_logger().info(
+                        f"Waypoint file {file_path} has been deleted."
+                    )
+                else:
+                    self.get_logger().error(
+                        f"Waypoint file {file_path} does not exist."
+                    )
 
         elif cmd == "nav-to-wps":  # nav-to-wps:wps.yaml, nav-to-wps:songsanri.yaml
             self.get_logger().info("Received nav-to-wps command.")

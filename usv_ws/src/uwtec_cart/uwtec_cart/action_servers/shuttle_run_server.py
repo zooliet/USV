@@ -15,7 +15,7 @@ from uwtec_cart.utils import (
     calc_heading_from_yaw_and_offset,
 )
 
-from uwtec_cart.utils.driving_mixin import OperationMode, DrivingMode, DrivingMixin
+from uwtec_cart.utils.driving_mixin import DrivingMode, DrivingMixin
 
 
 class ShuttleRunServer(DrivingMixin, Node):
@@ -53,6 +53,7 @@ class ShuttleRunServer(DrivingMixin, Node):
         self.prev_twist = copy.deepcopy(self.twist)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_nav", 1)
         # self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 1) # for testing
+        self.rate = self.create_rate(int(1.0 / self.interval))
 
     def gps_custom_callback(self, msg):
         self.latitude = msg.latitude
@@ -74,72 +75,71 @@ class ShuttleRunServer(DrivingMixin, Node):
         result = GeoLoc.Result()
 
         # retrieve params given by the goal request
-        dst_latitude = goal_handle.request.point.latitude
-        dst_longitude = goal_handle.request.point.longitude
+        goal_latitude = goal_handle.request.point.latitude
+        goal_longitude = goal_handle.request.point.longitude
 
         # get *_speed variables from config/system.yaml and assign to instance variables
         # these values are consumed in methods of DrivingMixin
         self.linear_speed = get_config_value("linear_speed", default=0.5)
         self.angular_speed = get_config_value("angular_speed", default=0.5)
         gyro_offset = get_config_value("gyro_offset", default=0.0)
+
+        # calculate current heading based on current yaw and gyro offset
         current_heading = calc_heading_from_yaw_and_offset(self.yaw, gyro_offset)
 
-        src_utm_x, src_utm_y = self.utm_x, self.utm_y
-        dst_utm_x, dst_utm_y = None, None
+        # initialize start and end UTM coordinates
+        start_utm_x, start_utm_y = self.utm_x, self.utm_y
+        goal_utm_x, goal_utm_y = None, None
 
         run_no = 0
         iterations = 4
-        mode = OperationMode.START_OVER
+        mode = DrivingMode.READY
+        prev_mode = DrivingMode.READY
 
         ticks = 1
-        rate = self.create_rate(int(1.0 / self.interval))
         while rclpy.ok():
-            if mode == OperationMode.START_OVER:
-                if dst_utm_x is None or dst_utm_y is None:
-                    dst_utm_x, dst_utm_y = self.transformer.transform(
-                        dst_longitude, dst_latitude
+            if mode != prev_mode:
+                self.get_logger().info(f"{mode}")
+                prev_mode = mode
+
+            if mode == DrivingMode.READY:
+                # set goal UTM coordinates on first run, then swap start and goal for subsequent runs to create a shuttle run effect
+                if goal_utm_x is None or goal_utm_y is None:
+                    goal_utm_x, goal_utm_y = self.transformer.transform(
+                        goal_longitude, goal_latitude
                     )
                 else:
-                    dst_utm_x, dst_utm_y = (
-                        src_utm_x,
-                        src_utm_y,
-                    )  # swap src and dst for next run
+                    goal_utm_x, goal_utm_y = (start_utm_x, start_utm_y)
 
-                src_utm_x, src_utm_y = self.utm_x, self.utm_y
-                mode = OperationMode.RUNNING
-                self.driving_mode = DrivingMode.READY
+                start_utm_x, start_utm_y = self.utm_x, self.utm_y
+                mode = DrivingMode.RUNNING
 
-            elif mode == OperationMode.RUNNING:
+            elif mode == DrivingMode.FINISHED:
+                self.stop()
+                run_no += 1
+                self.get_logger().info(f"{run_no}/{iterations}: Reached destination.")
+                if run_no >= iterations:
+                    break  # end of while loop, will proceed to return result
+                else:
+                    mode = DrivingMode.READY
+
+            else:
                 current_utm_x, current_utm_y = self.utm_x, self.utm_y
                 current_heading = calc_heading_from_yaw_and_offset(
                     self.yaw, gyro_offset
                 )
-                distance_remaining = self.go_driving(
-                    (src_utm_x, src_utm_y),
-                    (dst_utm_x, dst_utm_y),
-                    (current_utm_x, current_utm_y),
-                    current_heading,
+                mode = self.go_driving(
+                    mode=mode,
+                    current_utm=(current_utm_x, current_utm_y),
+                    current_heading=current_heading,
+                    start_utm=(start_utm_x, start_utm_y),
+                    goal_utm=(goal_utm_x, goal_utm_y),
                 )
 
-                # we give 30.0 seconds for the shuttle run to complete each way, but it can be stopped earlier if it reaches the destination
-                if (
-                    check_timeout(ticks, 30.0, self.interval)
-                    or distance_remaining < 0.2
-                ):  # 20 cm tolerance
-                    self.stop()
-                    run_no += 1
-                    self.get_logger().info(
-                        f"{run_no}/{iterations}: Reached destination."
-                    )
-                    if run_no > iterations - 1:
-                        mode = OperationMode.FINISHED
-                    else:
-                        mode = OperationMode.START_OVER
-
-            elif mode == OperationMode.FINISHED:
-                self.stop()
-                self.get_logger().info("Driving finished.")
-                break
+                # timeout for forward movement: 30 seconds or distance traveled, whichever comes first
+                if check_timeout(ticks, 30.0, self.interval):
+                    # print("Timeout check: ticks =", ticks)
+                    mode = DrivingMode.FINISHED
 
             if goal_handle.is_cancel_requested:
                 self.stop()
@@ -152,13 +152,14 @@ class ShuttleRunServer(DrivingMixin, Node):
 
             try:
                 ticks += 1
-                rate.sleep()
+                self.rate.sleep()
             except Exception as e:
                 # Handle case where ROS context shuts down
                 print(e)
                 result.success = False
                 return result
 
+        # end of while loop
         self.stop()
         self.get_logger().info("shuttle-run completed.")
         goal_handle.succeed()

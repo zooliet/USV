@@ -7,7 +7,7 @@ from uwtec_interfaces.action import SimpleCommand
 class NavToWpsClient(ActionClient):
     def __init__(self, node, action_type, action_name):
         super().__init__(node, action_type, action_name)
-        node.get_logger().info("shuttle_run_action_client has been initialized")
+        node.get_logger().info("nav_to_wps_action_client has been initialized")
         self.node = node  # Agent node
         self.goal_handle = None
 

@@ -15,8 +15,6 @@ from uwtec_cart.utils import (
     calc_heading_from_yaw_and_offset,
     calc_goal_heading,
     calc_goal_coordinates,
-    rotate_to_go,
-    distance_to_go,
 )
 
 from uwtec_cart.utils.driving_mixin import DrivingMode, DrivingMixin
@@ -59,6 +57,7 @@ class TestRunServer(DrivingMixin, Node):
         self.twist = Twist()
         self.prev_twist = copy.deepcopy(self.twist)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel_nav", 1)
+        # self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 1) # for testing
         self.rate = self.create_rate(int(1.0 / self.interval))
 
     def gps_custom_callback(self, msg):
@@ -93,10 +92,11 @@ class TestRunServer(DrivingMixin, Node):
         self.angular_speed = get_config_value("angular_speed", default=0.5)
         gyro_offset = get_config_value("gyro_offset", default=0.0)
 
-        # initialize start and end UTM coordinates
+        # calculate current heading and goal heading based on current yaw and gyro offset
         current_heading = calc_heading_from_yaw_and_offset(self.yaw, gyro_offset)
         goal_heading = calc_goal_heading(current_heading, by=angle)
 
+        # initialize start and end UTM coordinates
         start_utm_x, start_utm_y = self.utm_x, self.utm_y
         goal_utm_x, goal_utm_y = calc_goal_coordinates(
             (start_utm_x, start_utm_y), distance, goal_heading
@@ -159,11 +159,11 @@ class TestRunServer(DrivingMixin, Node):
                     # print("Timeout check: ticks =", ticks)
                     mode = DrivingMode.FINISHED
 
-                if goal_handle.is_cancel_requested:
-                    self.stop()
-                    self.get_logger().info("test-run cancelled during execution.")
-                    goal_handle.canceled()
-                    return SimpleNav.Result(success=False)
+            if goal_handle.is_cancel_requested:
+                self.stop()
+                self.get_logger().info("test-run cancelled during execution.")
+                goal_handle.canceled()
+                return SimpleNav.Result(success=False)
 
             # feedback.progress = 0
             # goal_handle.publish_feedback(feedback)
