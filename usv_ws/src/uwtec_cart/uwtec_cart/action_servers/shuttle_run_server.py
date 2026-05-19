@@ -33,6 +33,7 @@ class ShuttleRunServer(DrivingMixin, Node):
         self.yaw = 0.0
         self.gps_quality = 0
         self.num_sats = 0
+        self.speed = 0.0
         self.utm_x, self.utm_y = self.transformer.transform(
             self.longitude, self.latitude
         )
@@ -64,6 +65,7 @@ class ShuttleRunServer(DrivingMixin, Node):
         self.yaw = msg.heading
         self.gps_quality = msg.gps_quality
         self.num_sats = msg.num_sats
+        self.speed = msg.speed
 
     def cancel_callback(self, goal_handle):
         self.get_logger().info("shuttle-run cancelled.")

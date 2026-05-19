@@ -1,7 +1,11 @@
 [workspace]
 authors = ["Junhyun Shin <hl1sqi@gmail.com>"]
-channels = ["https://prefix.dev/robostack-jazzy", "https://prefix.dev/conda-forge"]
-name = "USV"
+channels = [
+  "https://prefix.dev/robostack-jazzy",
+  "https://prefix.dev/conda-forge",
+]
+# name = "USV"
+name = "usv_ws"
 platforms = ["linux-aarch64", "osx-arm64", "osx-64", "linux-64"]
 version = "0.2.0"
 preview = ["pixi-build"]
@@ -20,8 +24,9 @@ async_timeout = ">=3.0.1,<4"
 pynmea2 = ">=1.19.0,<2"
 pyproj = ">=3.7.2,<4"
 ros-jazzy-twist-mux = ">=4.4.0,<5"
+pillow = ">=12.2.0,<13"
 
 [pypi-dependencies]
 asyncio-for-robotics = ">=1.3.5, <2"
 redis = ">=7.4.0, <8"
-
+opencv-python = "*"

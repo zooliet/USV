@@ -46,6 +46,7 @@ class Agent(Node):
         self.yaw: float = 0.0
         self.gps_quality: int = 0
         self.num_sats: int = 0
+        self.speed: float = 0.0
 
         self.localizer_sub = self.create_subscription(
             CustomNavSat, "/gps/custom", self.gps_custom_callback, 1
@@ -64,6 +65,7 @@ class Agent(Node):
         self.yaw = msg.heading  # ccw positive, 0 ~ 360
         self.gps_quality = msg.gps_quality
         self.num_sats = msg.num_sats
+        self.speed = msg.speed
 
     async def redis_loop(self):
         pubsub = self.redis.pubsub()
@@ -296,7 +298,7 @@ class Agent(Node):
     async def response_with_pong(self):
         gyro_offset = get_config_value("gyro_offset", 0.0)
         current_heading = calc_heading_from_yaw_and_offset(self.yaw, gyro_offset)
-        response = f"pong:{self.latitude}:{self.longitude}:{current_heading:.2f}:{self.yaw:.2f}:{self.gps_quality}:{self.num_sats}"
+        response = f"pong:{self.latitude}:{self.longitude}:{current_heading:.2f}:{self.yaw:.2f}:{self.gps_quality}:{self.num_sats}:{self.speed:.2f}"
         await self.redis.publish("channel::gui", response)
 
     async def get_params(self, params):

@@ -4,3 +4,4 @@ float64 longitude
 float64 heading
 int32 num_sats
 int32 gps_quality
+float64 speed

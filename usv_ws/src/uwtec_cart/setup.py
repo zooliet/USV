@@ -35,6 +35,7 @@ setup(
             "agent = uwtec_cart.agent:main",
             "cmd_vel_joy = uwtec_cart.cmd_vel_joy:main",
             "um982_config = uwtec_cart.um982_configurator:main",
+            "streamer = uwtec_cart.ultrasonic_rtsp:main",
         ],
     },
 )

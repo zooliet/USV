@@ -2,6 +2,7 @@ import os
 import yaml
 import math
 from ament_index_python.packages import get_package_share_directory
+from math import radians, cos, sin, asin, sqrt
 
 
 def set_config_value(key, value):
@@ -184,3 +185,17 @@ def get_waypoints_from_route_file(route_file):
         raise RuntimeError(f"Failed to read route file '{route_file}': {e}")
 
     return coords
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6372.8  # for miles, use 3958.87433
+
+    dLat = radians(lat2 - lat1)
+    dLon = radians(lon2 - lon1)
+    lat1 = radians(lat1)
+    lat2 = radians(lat2)
+
+    a = sin(dLat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dLon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+
+    return R * c

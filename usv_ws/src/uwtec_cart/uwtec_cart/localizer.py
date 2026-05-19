@@ -3,6 +3,7 @@ import pynmea2
 from pynmea2 import GGA
 import time
 from typing import cast
+from collections import deque
 
 import asyncio
 import aioserial
@@ -17,6 +18,8 @@ from asyncio_for_robotics.ros2 import (
     auto_session,
     set_auto_session,
 )
+
+from uwtec_cart.utils import haversine
 
 # assume GNSS data comes at 10 Hz and gyro data comes at 100 Hz
 GNSS_SAMPLING = 0.1  # 0.1 sec, 100 ms, 10 Hz
@@ -40,6 +43,8 @@ class Localizer(Node):
         self.longitude: float = 127.525468
         self.prev_latitude: float = 37.719457
         self.prev_longitude: float = 127.525468
+        # self.speed: float = 0.0
+        self.speeds: deque = deque(maxlen=10)  # for smoothing speed calculation
 
         self.num_sats: int = 0
         self.gps_qual: int = 0
@@ -62,7 +67,18 @@ class Localizer(Node):
         if self.latitude == 0.0 or self.longitude == 0.0:
             self.latitude = self.prev_latitude
             self.longitude = self.prev_longitude
+            self.speeds.append(0.0)
         else:
+            speed = (
+                haversine(
+                    lat1=self.prev_latitude,
+                    lon1=self.prev_longitude,
+                    lat2=self.latitude,
+                    lon2=self.longitude,
+                )
+                / self.interval
+            )
+            self.speeds.append(speed)
             self.prev_latitude = self.latitude
             self.prev_longitude = self.longitude
 
@@ -75,6 +91,7 @@ class Localizer(Node):
         msg.heading = self.gyro_heading
         msg.num_sats = int(self.num_sats)
         msg.gps_quality = int(self.gps_qual)
+        msg.speed = sum(self.speeds) / len(self.speeds) if self.speeds else 0.0
         self.localizer_pub.publish(msg)
 
 
