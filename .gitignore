@@ -15,3 +15,8 @@
 # microros_ws
 microros_ws/*
 !microros_ws/.keep
+
+# python
+# Python bytecode
+*.py[cod]
+**/__pycache__/

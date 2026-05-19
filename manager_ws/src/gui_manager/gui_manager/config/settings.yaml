@@ -1,1 +1,4 @@
-redis_cli: "192.168.0..174"
+redis_cli: "192.168.0.174"
+ip_address: "192.168.0.174"
+linear_speed: 0.5
+angular_speed: 0.5
