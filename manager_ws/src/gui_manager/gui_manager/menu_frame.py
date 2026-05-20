@@ -12,7 +12,7 @@ class MenuFrame(CTkFrame):
 
     def setup_ui(self, master):
         CTkLabel(self, text="위도:", font=CTkFont(size=14)).grid(
-            row=1, column=0, padx=(20, 10), pady=(40, 10), sticky="ne"
+            row=1, column=0, padx=(20, 10), pady=(10, 10), sticky="ne"
         )
         CTkLabel(self, text="경도:", font=CTkFont(size=14)).grid(
             row=2, column=0, padx=(20, 10), pady=(10, 10), sticky="ne"
@@ -60,12 +60,12 @@ class MenuFrame(CTkFrame):
             sticky="n",
         )
 
-        # self.setting_button = CTkButton(
-        #     self, text="셋팅", height=40, command=master.open_settings
-        # )
-        # self.setting_button.grid(
-        #     row=14, column=0, columnspan=2, padx=20, pady=10, sticky="n"
-        # )
+        self.setting_button = CTkButton(
+            self, text="개발자 모드", height=40, command=master.open_developer_mode
+        )
+        self.setting_button.grid(
+            row=14, column=0, columnspan=2, padx=40, pady=10, sticky="n"
+        )
 
         self.reboot_button = CTkButton(
             self, text="재부팅", height=40, command=master.reboot

@@ -4,223 +4,14 @@ import async_timeout
 from redis.asyncio import Redis
 
 import customtkinter as ctk
-from customtkinter import CTk, CTkToplevel  # , CTkInputDialog
+from customtkinter import CTk, CTkToplevel, CTkInputDialog
 from CTkMessagebox import CTkMessagebox
 
 from async_tkinter_loop import async_handler
 from async_tkinter_loop.mixins import AsyncCTk
 from gui_manager.menu_frame import MenuFrame
 from gui_manager.nav_frame import NavFrame
-from gui_manager.widgets import InputDialog
-
-from typing import Optional, Tuple, Union
-
-
-class CTkInputDialog(CTkToplevel):
-    """
-    Dialog with extra window, message, entry widget, cancel and ok button.
-    For detailed information check out the documentation.
-    """
-
-    def __init__(
-        self,
-        text_color: Optional[Union[str, Tuple[str, str]]] = None,
-        fg_color: Optional[Union[str, Tuple[str, str]]] = None,
-        button_fg_color: Optional[Union[str, Tuple[str, str]]] = None,
-        button_hover_color: Optional[Union[str, Tuple[str, str]]] = None,
-        button_text_color: Optional[Union[str, Tuple[str, str]]] = None,
-        entry_fg_color: Optional[Union[str, Tuple[str, str]]] = None,
-        entry_border_color: Optional[Union[str, Tuple[str, str]]] = None,
-        entry_text_color: Optional[Union[str, Tuple[str, str]]] = None,
-        title: str = "CTkDialog",
-        font: Optional[Union[tuple, ctk.CTkFont]] = None,
-        label_text: str = "CTkDialog",
-        entry_text: Optional[str] = None,
-    ):
-        super().__init__(fg_color=fg_color)
-
-        self._fg_color = (
-            ctk.ThemeManager.theme["CTkToplevel"]["fg_color"]
-            if fg_color is None
-            else self._check_color_type(fg_color)
-        )
-        self._text_color = (
-            ctk.ThemeManager.theme["CTkLabel"]["text_color"]
-            if text_color is None
-            else self._check_color_type(button_hover_color)
-        )
-        self._button_fg_color = (
-            ctk.ThemeManager.theme["CTkButton"]["fg_color"]
-            if button_fg_color is None
-            else self._check_color_type(button_fg_color)
-        )
-        self._button_hover_color = (
-            ctk.ThemeManager.theme["CTkButton"]["hover_color"]
-            if button_hover_color is None
-            else self._check_color_type(button_hover_color)
-        )
-        self._button_text_color = (
-            ctk.ThemeManager.theme["CTkButton"]["text_color"]
-            if button_text_color is None
-            else self._check_color_type(button_text_color)
-        )
-        self._entry_fg_color = (
-            ctk.ThemeManager.theme["CTkEntry"]["fg_color"]
-            if entry_fg_color is None
-            else self._check_color_type(entry_fg_color)
-        )
-        self._entry_border_color = (
-            ctk.ThemeManager.theme["CTkEntry"]["border_color"]
-            if entry_border_color is None
-            else self._check_color_type(entry_border_color)
-        )
-        self._entry_text_color = (
-            ctk.ThemeManager.theme["CTkEntry"]["text_color"]
-            if entry_text_color is None
-            else self._check_color_type(entry_text_color)
-        )
-
-        self._user_input: Union[str, None] = None
-        self._running: bool = False
-        self._title = title
-        self._label_text = label_text
-        self._entry_text = entry_text
-        self._font = font
-
-        self.title(self._title)
-        self.lift()  # lift window on top
-        self.attributes("-topmost", True)  # stay on top
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
-        self.after(
-            10, self._create_widgets
-        )  # create widgets with slight delay, to avoid white flickering of background
-        self.resizable(False, False)
-        self.grab_set()  # make other windows not clickable
-
-    def _create_widgets(self):
-        self.grid_columnconfigure((0, 1), weight=1)
-        self.grid_rowconfigure(0, weight=1)
-
-        self._label = ctk.CTkLabel(
-            master=self,
-            width=300,
-            wraplength=300,
-            fg_color="transparent",
-            text_color=self._text_color,
-            text=self._label_text,
-            font=self._font,
-        )
-        self._label.grid(row=0, column=0, columnspan=2, padx=20, pady=20, sticky="ew")
-
-        self._entry = ctk.CTkEntry(
-            master=self,
-            width=230,
-            fg_color=self._entry_fg_color,
-            border_color=self._entry_border_color,
-            text_color=self._entry_text_color,
-            font=self._font,
-            textvariable=ctk.StringVar(self, self._entry_text),
-        )
-        self._entry.grid(
-            row=1, column=0, columnspan=2, padx=20, pady=(0, 20), sticky="ew"
-        )
-
-        self._ok_button = ctk.CTkButton(
-            master=self,
-            width=100,
-            border_width=0,
-            fg_color=self._button_fg_color,
-            hover_color=self._button_hover_color,
-            text_color=self._button_text_color,
-            text="Ok",
-            font=self._font,
-            command=self._ok_event,
-        )
-        self._ok_button.grid(
-            row=2, column=0, columnspan=1, padx=(20, 10), pady=(0, 20), sticky="ew"
-        )
-
-        self._cancel_button = ctk.CTkButton(
-            master=self,
-            width=100,
-            border_width=0,
-            # fg_color=("#D30000", "#8B0000"),
-            # hover_color=("#BF0000", "#610000"),
-            fg_color=self._button_fg_color,
-            hover_color=self._button_hover_color,
-            text_color=self._button_text_color,
-            text="Cancel",
-            font=self._font,
-            command=self._cancel_event,
-        )
-        self._cancel_button.grid(
-            row=2, column=1, columnspan=1, padx=(10, 20), pady=(0, 20), sticky="ew"
-        )
-
-        # set focus to entry with slight delay, otherwise it won't work
-        self.after(150, lambda: self._entry.focus())
-        self._entry.bind("<Return>", self._ok_event)
-
-    def _ok_event(self):
-        self._user_input = self._entry.get()
-        self.grab_release()
-        self.destroy()
-
-    def _on_closing(self):
-        self.grab_release()
-        self.destroy()
-
-    def _cancel_event(self):
-        self.grab_release()
-        self.destroy()
-
-    def get_input(self):
-        self.master.wait_window(self)
-        return self._user_input
-
-
-# class SettingWindow(CTkToplevel):
-#     def __init__(self, master):
-#         super().__init__(master)
-#         self.master = master
-#
-#         self.title("설정 윈도우")
-#
-#         # Standard CTkInputDialog size is approx 300x200
-#         width = 400
-#         height = 400
-#
-#         # Calculate screen center
-#         screen_width = master.winfo_screenwidth()
-#         screen_height = master.winfo_screenheight()
-#
-#         x = int((screen_width / 2) - (width / 2))
-#         y = int((screen_height / 2) - (height / 2))
-#         self.geometry(f"{width}x{height}+{x}+{y}")
-#
-#         # Entry 1
-#         self.label_1 = ctk.CTkLabel(self, text="First Name:")
-#         self.label_1.pack(pady=(10, 0))
-#         self.entry_1 = ctk.CTkEntry(self)
-#         self.entry_1.pack(pady=5)
-#
-#         # Entry 2
-#         self.label_2 = ctk.CTkLabel(self, text="Last Name:")
-#         self.label_2.pack(pady=(10, 0))
-#         self.entry_2 = ctk.CTkEntry(self)
-#         self.entry_2.pack(pady=5)
-#
-#         # Submit Button
-#         self.button = ctk.CTkButton(self, text="Submit", command=self.submit)
-#         self.button.pack(pady=20)
-#
-#         self.user_data = None
-#         self.grab_set()  # Make window modal
-#
-#     def submit(self):
-#         self.user_data = (self.entry_1.get(), self.entry_2.get())
-#         print("Inputs:", self.user_data)
-#         self.destroy()
+from gui_manager.widgets import InputDialog, CLIDialog
 
 
 class App(CTk, AsyncCTk):
@@ -421,27 +212,80 @@ class App(CTk, AsyncCTk):
             self.redis = Redis.from_url(f"redis://{self.redis_ip}", socket_timeout=5.0)
             self.redis_task = self.event_loop.create_task(self.read_redis())
 
-    # @async_handler
-    # async def open_settings(self):
-    #     if self.connected:
-    #         dialog = SettingWindow(self)
-    #         # self.wait_window(dialog)  # Wait for dialog to close
-    #         # print("Inputs:", dialog.user_data)
+    @async_handler
+    async def open_developer_mode(self):
+        if self.connected:
+            # dialog = CTkInputDialog(text="Enter CLI command:", title="Developer Mode")
+            dialog = CLIDialog(
+                self,
+                title="Developer Mode",
+                label_text="Enter CLI command:",
+                value_list=[
+                    "test-run:forward:10:0",
+                    "test-run:turn:0:90",
+                    "test-run:nav-to:20:10",
+                    "test-run:stop",
+                ],
+            )
+
+            # Standard CTkInputDialog size is approx 300x200
+            width = 400
+            height = 260
+
+            # Calculate screen center
+            screen_width = dialog.winfo_screenwidth()
+            screen_height = dialog.winfo_screenheight()
+
+            x = int((screen_width / 2) - (width / 2))
+            y = int((screen_height / 2) - (height / 2))
+            dialog.geometry(f"{width}x{height}+{x}+{y}")
+            cmd = dialog.get_input()
+            print(cmd)
+            if cmd is not None:
+                await self.redis.publish("channel::agent", f"{cmd}")
+        else:
+            CTkMessagebox(
+                master=self,
+                title="Warning",
+                message="Not connected to agent. Please connect first.",
+                icon="warning",
+            )
 
     @async_handler
     async def poweroff(self):
         if self.connected:
             await self.redis.publish("channel::agent", "poweroff")
+        else:
+            CTkMessagebox(
+                master=self,
+                title="Warning",
+                message="Not connected to agent. Please connect first.",
+                icon="warning",
+            )
 
     @async_handler
     async def reboot(self):
         if self.connected:
             await self.redis.publish("channel::agent", "reboot")
+        else:
+            CTkMessagebox(
+                master=self,
+                title="Warning",
+                message="Not connected to agent. Please connect first.",
+                icon="warning",
+            )
 
     @async_handler
     async def align_heading(self):
         if self.connected:
             await self.redis.publish("channel::agent", "calibrate-gyro")
+        else:
+            CTkMessagebox(
+                master=self,
+                title="Warning",
+                message="Not connected to agent. Please connect first.",
+                icon="warning",
+            )
 
 
 def main():
