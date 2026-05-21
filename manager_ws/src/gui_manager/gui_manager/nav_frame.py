@@ -18,11 +18,9 @@ class MapFrame(tkmap.AsyncTkinterMapView):
         super().__init__(master, corner_radius=0)
         self.master = master
 
-        self.grid(
-            row=0, column=0, columnspan=2, padx=(0, 0), pady=(0, 0), sticky="nsew"
-        )
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid(row=0, column=0, padx=(0, 0), pady=(0, 0), sticky="nsew")
+        # self.grid_columnconfigure(0, weight=1)
+        # self.grid_rowconfigure(100, weight=1)
 
     def setup_ui(self, master):
         # map tile servers:
@@ -58,7 +56,7 @@ class ControlFrame(CTkFrame):
         super().__init__(master, corner_radius=0, fg_color="transparent")
 
         self.grid(row=1, column=0, padx=0, pady=0, sticky="nsew")
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure((0, 1), weight=1)
         self.grid_rowconfigure(0, weight=1)
 
     def setup_ui(self, master):
@@ -66,19 +64,21 @@ class ControlFrame(CTkFrame):
             self,
             text="주행",
             width=120,
-            height=60,
+            height=36,
+            font=CTkFont(size=12),
             command=async_handler(master.start_wps),
         )
-        self.start_button.grid(row=10, column=0, padx=40, pady=(40, 40), sticky="e")
+        self.start_button.grid(row=0, column=0, padx=40, pady=(20, 20), sticky="e")
 
         self.stop_button = CTkButton(
             self,
             text="중지",
             width=120,
-            height=60,
+            height=36,
+            font=CTkFont(size=12),
             command=async_handler(master.stop_wps),
         )
-        self.stop_button.grid(row=10, column=1, padx=40, pady=(40, 40), sticky="w")
+        self.stop_button.grid(row=0, column=1, padx=40, pady=(20, 20), sticky="w")
 
         # CTkLabel(self, text="주행 속도", font=CTkFont(size=14)).grid(
         #     row=11, column=0, columnspan=2, padx=20, pady=(10, 0)
@@ -104,17 +104,21 @@ class NavFrame(CTkFrame):
         current_path = os.path.dirname(os.path.abspath(__file__))
         print(current_path)
         self.red_icon = ImageTk.PhotoImage(
-            Image.open(os.path.join(current_path, "config", "red.png")).resize((20, 20))
+            Image.open(os.path.join(current_path, "config", "red.png")).resize((10, 10))
         )
         self.blue_icon = ImageTk.PhotoImage(
             Image.open(os.path.join(current_path, "config", "blue.png")).resize(
-                (30, 30)
+                (10, 10)
             )
         )
 
         self.grid(row=0, column=1, sticky="nsew")
-        self.grid_columnconfigure((0, 1), weight=1)
-        self.grid_rowconfigure(0, weight=3)
+        # self.grid_columnconfigure((0, 1), weight=1)
+        # self.grid_rowconfigure(0, weight=3)
+        self.grid_columnconfigure((0), weight=1)
+        self.grid_columnconfigure((1), weight=0)
+        self.grid_rowconfigure((0), weight=1)
+        self.grid_rowconfigure((1), weight=0)
 
         self.after_idle(self.setup_ui)
 
@@ -170,7 +174,7 @@ class NavFrame(CTkFrame):
         path_coords = [(m.position[0], m.position[1]) for m in self.markers]
 
         # Draw the path on the map
-        self.map_frame.set_path(path_coords)
+        self.map_frame.set_path(path_coords, width=4)
 
     def clear_path(self):
         for marker in self.markers:

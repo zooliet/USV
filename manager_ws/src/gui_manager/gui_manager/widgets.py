@@ -54,7 +54,7 @@ class InputDialog(CTkToplevel):
         self.ok_button = CTkButton(
             master=self,
             # width=50,
-            height=40,
+            height=36,
             text="Ok",
             command=self.ok_event,
         )
@@ -65,7 +65,7 @@ class InputDialog(CTkToplevel):
         self.cancel_button = CTkButton(
             master=self,
             # width=50,
-            height=40,
+            height=36,
             text="Cancel",
             command=self.cancel_event,
         )
@@ -147,7 +147,7 @@ class CLIDialog(CTkToplevel):
 
         self.ok_button = CTkButton(
             master=self,
-            height=40,
+            height=36,
             text="Ok",
             command=self.ok_event,
         )
@@ -157,7 +157,7 @@ class CLIDialog(CTkToplevel):
 
         self.cancel_button = CTkButton(
             master=self,
-            height=40,
+            height=36,
             text="Cancel",
             command=self.cancel_event,
         )

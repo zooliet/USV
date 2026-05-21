@@ -38,6 +38,7 @@ class App(CTk, AsyncCTk):
 
         # configure grid weights for responsive resizing
         # self.grid_columnconfigure((0, 2), weight=1)
+        self.grid_columnconfigure((0), weight=0)
         self.grid_columnconfigure((1), weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -46,6 +47,8 @@ class App(CTk, AsyncCTk):
         self.redis_task = self.event_loop.create_task(self.read_redis())
 
     def setup_ui(self):
+        ctk.set_appearance_mode("dark")
+
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         # self.geometry(f"{screen_width}x{screen_height}+0+0")
@@ -55,7 +58,7 @@ class App(CTk, AsyncCTk):
         window_x = 0
         window_y = 0
         self.geometry(f"{window_width}x{window_height}+{window_x}+{window_y}")
-        self.minsize(1280, 1024)
+        # self.minsize(1280, 1024)
         self.title("UWTEC USV Control GUI")
 
         # menu frame
